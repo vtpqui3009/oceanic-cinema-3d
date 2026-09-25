@@ -1,13 +1,17 @@
 import { ContactShadows } from '@react-three/drei'
+import * as THREE from 'three'
 import { Anglerfish } from '../creatures/anglerfish/Anglerfish'
 import { Zone } from '../scene/Zone'
 import { AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
-import { ZONE_Y } from '../lib/dive'
+import { ZONE_Y, subjects } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
 
 const FISH_POS: [number, number, number] = [0, 0.85, 0]
 // keep boulders out of the camera's final push-in
+// focus point for the depth of field: the face, between lure and teeth
+subjects[3] = new THREE.Vector3(0.12, ZONE_Y[3] + FISH_POS[1] + 0.3, 0.5)
+
 const CLEARINGS: [number, number, number][] = [[3.3, 4.6, 2.2], [2, 2.8, 1.8], [1, 1, 1.4]]
 
 /**

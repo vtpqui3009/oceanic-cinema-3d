@@ -8,6 +8,7 @@ import { ShallowsScene } from '../scenes/ShallowsScene'
 import { TwilightScene } from '../scenes/TwilightScene'
 import { MidnightScene } from '../scenes/MidnightScene'
 import { AbyssScene } from '../scenes/AbyssScene'
+import { PostFX } from './PostFX'
 import { useSceneStore } from '../state/useSceneStore'
 
 export function Experience() {
@@ -22,8 +23,8 @@ export function Experience() {
       dpr={quality === 'high' ? [1, 2] : [1, 1.5]}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       camera={{ position: [0, 6.5, 13], fov: 38, near: 0.05, far: 140 }}
+      // tone mapping + grading happen in <PostFX/> (FilmGradeEffect)
       onCreated={({ gl, scene, camera }) => {
-        gl.toneMapping = THREE.ACESFilmicToneMapping
         if (import.meta.env.DEV) Object.assign(window, { __three: { gl, scene, camera } })
       }}
     >
@@ -35,6 +36,7 @@ export function Experience() {
       <MidnightScene />
       <AbyssScene />
       <MarineSnow />
+      <PostFX />
     </Canvas>
   )
 }

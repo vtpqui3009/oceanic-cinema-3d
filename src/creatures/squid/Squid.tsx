@@ -7,7 +7,7 @@ import { AimedSpot } from '../../scene/AimedLight'
 import { CreatureModel } from '../CreatureModel'
 import { useProcedural } from '../../lib/useProcedural'
 import { CREATURES, userModelUrl } from '../../lib/models'
-import { SQUID_PATH, STAGE_P, dive, squidProgress } from '../../lib/dive'
+import { SQUID_PATH, STAGE_P, dive, squidProgress, subjects } from '../../lib/dive'
 import { useSceneStore } from '../../state/useSceneStore'
 
 const FLASH = new THREE.Color('#a9dcff')
@@ -46,6 +46,8 @@ export function Squid({ zoneOrigin }: { zoneOrigin: [number, number, number] }) 
     m.turn = THREE.MathUtils.lerp(m.turn, THREE.MathUtils.clamp(dh / Math.max(delta, 1e-3), -1.5, 1.5), 0.1)
     m.bank = THREE.MathUtils.lerp(m.bank, -m.turn * 0.25, 0.05)
     group.current.rotateZ(m.bank + Math.sin(t * 0.6) * 0.03)
+    subjects[2] ??= new THREE.Vector3()
+    group.current.getWorldPosition(subjects[2])
   })
 
   return (
