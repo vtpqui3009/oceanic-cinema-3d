@@ -103,14 +103,29 @@ renderer tắt), theo thứ tự:
   512–1024, tắt đổ bóng đèn rim, tắt `transmission` (vật liệu trong suốt
   dùng alpha), texture da 512 px, lưới thưa hơn, không DoF, không MSAA.
 - **`PerformanceMonitor`** (drei) đo FPS liên tục: độ phân giải (DPR) trượt
-  giữa min–max theo FPS; nếu vẫn không giữ nổi → tắt DoF và MSAA.
-- **Vùng xa không tốn gì:** mesh chuyển sang layer ẩn (camera + shadow camera
-  bỏ qua), đèn mờ về 0 và dừng cập nhật shadow map; số đèn giữ cố định nên
-  không bao giờ recompile shader giữa chừng. `ContactShadows` chỉ mount ở cảnh
-  đang xem.
+  giữa min–max theo FPS (bắt đầu ở 1, tối đa 1,5); nếu vẫn không giữ nổi → tắt DoF.
+- **Chỉ một vùng được chiếu sáng tại một thời điểm:** đèn của vùng không
+  xem bị tắt hẳn (`visible = false`), nên mỗi pixel chỉ tính 4–6 đèn và 1
+  shadow map thay vì 16 đèn / 6 shadow map. Đèn của vùng cũ mờ về 0 đúng ở
+  điểm giữa hai vùng rồi mới đổi, nên không thấy "giật" ánh sáng.
+- **Biên dịch shader trước:** mỗi vùng là một cấu hình đèn khác nhau (một
+  biến thể shader khác). `ShaderPrewarm` biên dịch sẵn cả 4 cấu hình bằng
+  `compileAsync` trong lúc màn hình tải còn hiện — không còn khựng khi lặn
+  sang vùng mới.
+- **Transmission** chỉ còn ở chuông sứa (render ở ½ độ phân giải); các phần
+  trong suốt khác dùng alpha. Shadow map đèn điểm 512 px, cập nhật mỗi 2
+  khung; mỗi vùng chỉ 1 đèn đổ bóng.
+- **Hình học vừa đủ:** đá 1 280 tam giác/viên (trước 20 480), lưới đáy biển
+  thưa hơn; cảnh sứa từ ~330k xuống ~170k tam giác.
+- **Hậu kỳ gọn:** không MSAA trên buffer HDR (dùng FXAA gộp vào pass hiệu
+  ứng), DoF ở 0,4 độ phân giải, bloom 6 mức. Mesh vùng xa vẫn nằm trên layer
+  ẩn (camera + shadow camera bỏ qua); `ContactShadows` chỉ mount ở cảnh đang
+  xem. `?fx=0` tắt hậu kỳ để đo.
 - **Asset:** model cá 12,5 MB → 239 KB (WebP 512 px) và được inline; mọi
   texture khác bake procedural lúc tải (không có request mạng nào ngoài font).
   Build một file JS ~1,9 MB (≈675 KB gzip).
+- **Tràn viền:** không letterbox, không thanh cuộn — canvas phủ toàn bộ khung
+  nhìn; chữ chỉ giữ khoảng cách an toàn với mép (kể cả tai thỏ/safe-area).
 - **Màn hình dọc:** khung hình được thiết kế cho ~16:9; trên màn hẹp camera
   vừa mở ống kính vừa lùi lại (giữ không gian ngang cho sinh vật) và hạ điểm
   nhìn để sinh vật nằm ở nửa trên, nhường phần dưới cho thẻ chương. Canvas

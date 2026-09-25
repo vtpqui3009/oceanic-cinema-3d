@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Bloom, ChromaticAberration, EffectComposer, Noise, Vignette } from '@react-three/postprocessing'
+import { Bloom, ChromaticAberration, EffectComposer, FXAA, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction, DepthOfFieldEffect, Effect, VignetteEffect } from 'postprocessing'
 import * as THREE from 'three'
 import { dive, subjects } from '../lib/dive'
@@ -55,6 +55,9 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 }
 `
 
+/** `?fx=0` renders without post-processing (profiling). */
+const NO_FX = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('fx') === '0'
+
 class FilmGradeEffect extends Effect {
   constructor() {
     super('FilmGradeEffect', gradeFragment, {
@@ -83,7 +86,7 @@ export function PostFX() {
     if (!hi) return null
     // CoC = smoothstep(0, focusRange, |distance − focus|) in world units: a wide
     // range keeps the whole creature sharp and only melts the far water
-    const e = new DepthOfFieldEffect(camera, { focusRange: 6.5, bokehScale: 2.2, resolutionScale: 0.5 })
+    const e = new DepthOfFieldEffect(camera, { focusRange: 6.5, bokehScale: 2.2, resolutionScale: 0.4 })
     e.target = focus
     return e
   }, [camera, hi, focus])
@@ -110,8 +113,11 @@ export function PostFX() {
     else focus.lerp(want, 0.08)
   })
 
+  if (NO_FX) return null
   return (
-    <EffectComposer multisampling={hi ? 4 : 0} enableNormalPass={false}>
+    // no MSAA on the half-float HDR target (costly resolve); FXAA at the end of
+    // the merged effect pass is nearly free
+    <EffectComposer multisampling={0} enableNormalPass={false}>
       {dof ? <primitive object={dof} dispose={null} /> : <></>}
       <Bloom
         ref={(b: unknown) => void (bloomRef.current = b as { intensity: number } | null)}
@@ -120,9 +126,11 @@ export function PostFX() {
         luminanceSmoothing={0.2}
         intensity={1}
         radius={0.78}
-        levels={hi ? 8 : 6}
+        levels={hi ? 6 : 5}
       />
       <primitive object={grade} dispose={null} />
+      {/* anti-alias before grain/aberration so they stay crisp */}
+      <FXAA />
       <ChromaticAberration
         offset={new THREE.Vector2(0.0007, 0.0005)}
         radialModulation

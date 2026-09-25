@@ -88,8 +88,8 @@ function ProceduralAnglerfish() {
   const onPulse = (p: number) => {
     rig.bulbMaterial.emissiveIntensity = 1.5 * p
     rig.coreMaterial.color.copy(coreBase).multiplyScalar(0.7 + 0.5 * p)
-    ;(rig.halo.material as THREE.SpriteMaterial).opacity = 0.35 + 0.3 * (p - 0.7)
-    rig.halo.scale.setScalar(0.8 + 0.25 * p)
+    ;(rig.halo.material as THREE.SpriteMaterial).opacity = 0.16 + 0.14 * (p - 0.7)
+    rig.halo.scale.setScalar(0.7 + 0.2 * p)
   }
 
   return (

@@ -7,12 +7,22 @@
   --abyss: #01050b;
   --serif: 'Cormorant Garamond', 'Times New Roman', serif;
   --sans: 'Inter', system-ui, sans-serif;
-  --bar: clamp(18px, 6vh, 64px);
+  /* breathing room from the screen edges (full-bleed stage, no letterbox) */
+  --edge-top: calc(env(safe-area-inset-top, 0px) + clamp(16px, 4vh, 40px));
+  --edge-bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(16px, 4vh, 40px));
   --gutter: clamp(16px, 5vw, 72px);
 }
 
 * {
   box-sizing: border-box;
+}
+
+html {
+  /* full-bleed: the page still scrolls, but no scrollbar eats into the frame */
+  scrollbar-width: none;
+}
+html::-webkit-scrollbar {
+  display: none;
 }
 
 html,
@@ -38,27 +48,10 @@ body {
   pointer-events: none;
 }
 
-/* cinematic 2.39:1-ish bars */
-.letterbox {
-  position: fixed;
-  left: 0;
-  right: 0;
-  height: var(--bar);
-  background: #000;
-  pointer-events: none;
-  z-index: 2;
-}
-.letterbox--top {
-  top: 0;
-}
-.letterbox--bottom {
-  bottom: 0;
-}
-
 /* ---- opening title ---------------------------------------------------- */
 .intro {
   position: fixed;
-  inset: var(--bar) 0;
+  inset: var(--edge-top) 0 var(--edge-bottom);
   z-index: 3;
   display: grid;
   place-content: center;
@@ -110,7 +103,7 @@ body {
 .chapter {
   position: fixed;
   left: var(--gutter);
-  bottom: calc(var(--bar) + clamp(16px, 5vh, 56px));
+  bottom: calc(var(--edge-bottom) + clamp(8px, 3vh, 32px));
   z-index: 3;
   max-width: min(460px, calc(100vw - 2 * var(--gutter) - 70px));
   pointer-events: none;
@@ -161,8 +154,8 @@ body {
 .gauge {
   position: fixed;
   right: clamp(16px, 3vw, 40px);
-  top: calc(var(--bar) + 7vh);
-  bottom: calc(var(--bar) + 7vh);
+  top: calc(var(--edge-top) + 5vh);
+  bottom: calc(var(--edge-bottom) + 5vh);
   z-index: 3;
   width: 56px;
   pointer-events: none;
@@ -220,7 +213,7 @@ body {
 @media (max-width: 640px) {
   .gauge {
     width: 44px;
-    top: calc(var(--bar) + 16px);
+    top: var(--edge-top);
     bottom: auto;
     height: 38vh;
   }

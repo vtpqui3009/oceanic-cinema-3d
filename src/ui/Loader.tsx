@@ -10,7 +10,8 @@ import { labelForUrl } from '../lib/models'
 export function Loader() {
   const { loaded, total, item, active } = useProgress()
   const tasks = useLoadingStore((s) => s.tasks)
-  const current = useLoadingStore((s) => s.current)
+  // the first job still running (not merely the last one registered)
+  const current = useLoadingStore((s) => Object.entries(s.tasks).find(([, done]) => !done)?.[0] ?? null)
   const [gone, setGone] = useState(false)
 
   const taskList = Object.values(tasks)

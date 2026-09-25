@@ -134,8 +134,6 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
       ior: 1.34,
       attenuationColor: new THREE.Color('#ff4f73'),
       attenuationDistance: 0.8,
-      iridescence: 0.35,
-      iridescenceIOR: 1.3,
       clearcoat: 0.6,
       clearcoatRoughness: 0.08,
       emissive: new THREE.Color('#6cc4ff'),
@@ -218,7 +216,6 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
     new THREE.MeshPhysicalMaterial({
       color: '#ffb8c8',
       roughness: 0.3,
-      transmission: hi ? 0.7 : 0,
       thickness: 0.015,
       emissive: new THREE.Color('#3f8fff'),
       emissiveIntensity: 0.12,
@@ -279,7 +276,6 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
     new THREE.MeshPhysicalMaterial({
       color: '#b3172f',
       roughness: 0.4,
-      transmission: hi ? 0.3 : 0,
       thickness: 0.06,
       attenuationColor: new THREE.Color('#ff3050'),
       attenuationDistance: 0.2,

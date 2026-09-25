@@ -13,8 +13,6 @@ export function Overlay() {
   const c = CHAPTERS[stage]
   return (
     <>
-      <div className="letterbox letterbox--top" />
-      <div className="letterbox letterbox--bottom" />
 
       <section className={`intro ${intro ? '' : 'intro--gone'}`} aria-hidden={!intro}>
         <p className="intro__eyebrow">Một thước phim tài liệu 3D</p>

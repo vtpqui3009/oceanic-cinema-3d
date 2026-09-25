@@ -277,7 +277,6 @@ export function buildAnglerfish({ quality }: BuildOptions): AnglerfishRig {
     new THREE.MeshPhysicalMaterial({
       color: '#efe6d2',
       roughness: 0.16,
-      transmission: hi ? 0.6 : 0,
       thickness: 0.04,
       ior: 1.52,
       attenuationColor: new THREE.Color('#cdb58e'),
@@ -350,7 +349,6 @@ export function buildAnglerfish({ quality }: BuildOptions): AnglerfishRig {
       depthWrite: false,
       side: THREE.DoubleSide,
       roughness: 0.45,
-      transmission: hi ? 0.35 : 0,
       thickness: 0.02,
       attenuationColor: new THREE.Color('#7a2d1c'),
       attenuationDistance: 0.12,
@@ -440,16 +438,15 @@ export function buildAnglerfish({ quality }: BuildOptions): AnglerfishRig {
   const bulbGeo = track(new THREE.LatheGeometry(bulbProfile, hi ? 48 : 24))
   const bulbMaterial = track(
     new THREE.MeshPhysicalMaterial({
-      color: '#8ff3ff',
+      // a thin translucent skin over the glowing core (alpha, not transmission:
+      // no extra scene pass for a 7 cm organ)
+      color: '#0d3a44',
       emissive: new THREE.Color('#7ff6ff'),
       emissiveMap: track(bakeLureEmissive()),
       emissiveIntensity: 3,
       roughness: 0.12,
-      transmission: hi ? 0.65 : 0,
-      thickness: 0.09,
-      ior: 1.36,
-      attenuationColor: new THREE.Color('#46e8ff'),
-      attenuationDistance: 0.15,
+      transparent: true,
+      opacity: 0.72,
       clearcoat: 1,
       clearcoatRoughness: 0.05,
     }),
@@ -479,9 +476,13 @@ export function buildAnglerfish({ quality }: BuildOptions): AnglerfishRig {
     c.width = c.height = 128
     const g = c.getContext('2d')!
     const grd = g.createRadialGradient(64, 64, 0, 64, 64, 64)
+    // steep falloff: real bloom does the wide glow now; this only adds the
+    // in-water scatter right around the organ (a broad flat halo would push a
+    // whole disc over the bloom threshold)
     grd.addColorStop(0, 'rgba(255,255,255,1)')
-    grd.addColorStop(0.12, 'rgba(255,255,255,0.55)')
-    grd.addColorStop(0.35, 'rgba(255,255,255,0.14)')
+    grd.addColorStop(0.08, 'rgba(255,255,255,0.45)')
+    grd.addColorStop(0.25, 'rgba(255,255,255,0.1)')
+    grd.addColorStop(0.6, 'rgba(255,255,255,0.02)')
     grd.addColorStop(1, 'rgba(255,255,255,0)')
     g.fillStyle = grd
     g.fillRect(0, 0, 128, 128)

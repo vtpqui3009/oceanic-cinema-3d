@@ -11,7 +11,7 @@ import { useSceneStore } from '../../state/useSceneStore'
  * fades out), the height (they die off with depth) and a slow flicker from
  * the waves passing overhead.
  */
-export function GodRays({ top = 10, count = 14, spread = 9, sunDir = [0.3, 1, 0.2] as [number, number, number] }) {
+export function GodRays({ top = 10, count = 10, spread = 9, sunDir = [0.3, 1, 0.2] as [number, number, number] }) {
   const quality = useSceneStore((s) => s.quality)
   const n = quality === 'high' ? count : Math.ceil(count * 0.6)
 
@@ -69,7 +69,7 @@ export function GodRays({ top = 10, count = 14, spread = 9, sunDir = [0.3, 1, 0.
     const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir)
     return Array.from({ length: n }, (_, i) => {
       const len = 16 + rng() * 8
-      const g = new THREE.CylinderGeometry(0.35 + rng() * 0.5, 1.2 + rng() * 1.6, len, 24, 1, true)
+      const g = new THREE.CylinderGeometry(0.35 + rng() * 0.5, 1.2 + rng() * 1.6, len, 16, 1, true)
       g.translate(0, -len / 2, 0) // hang from the top
       g.setAttribute('aSeed', new THREE.Float32BufferAttribute(new Array(g.attributes.position.count).fill(i / n + rng() * 0.1), 1))
       const a = rng() * Math.PI * 2

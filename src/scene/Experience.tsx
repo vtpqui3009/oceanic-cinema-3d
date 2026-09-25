@@ -11,15 +11,18 @@ import { TwilightScene } from '../scenes/TwilightScene'
 import { MidnightScene } from '../scenes/MidnightScene'
 import { AbyssScene } from '../scenes/AbyssScene'
 import { PostFX } from './PostFX'
+import { ShaderPrewarm } from './ShaderPrewarm'
 import { useSceneStore } from '../state/useSceneStore'
 
 export function Experience() {
   const quality = useSceneStore((s) => s.quality)
   const setDegraded = useSceneStore((s) => s.setDegraded)
   // resolution follows the measured frame rate between these bounds
-  const maxDpr = Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio, quality === 'high' ? 2 : 1.5)
-  const minDpr = quality === 'high' ? 1 : 0.7
-  const [dpr, setDpr] = useState(Math.min(maxDpr, quality === 'high' ? 1.5 : 1))
+  // everything is post-processed at full screen size, so resolution is the
+  // main cost: cap it, start low and let the monitor raise it if there's room
+  const maxDpr = Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio, quality === 'high' ? 1.5 : 1.25)
+  const minDpr = quality === 'high' ? 0.85 : 0.65
+  const [dpr, setDpr] = useState(Math.min(maxDpr, 1))
   return (
     <Canvas
       className="stage"
@@ -37,11 +40,12 @@ export function Experience() {
         // skip per-program error queries in production (faster compiles, and no
         // noise from harmless driver warnings such as D3D's X4122)
         gl.debug.checkShaderErrors = import.meta.env.DEV
+        // the jelly bell's refraction doesn't need a full-resolution copy of the scene
+        gl.transmissionResolutionScale = 0.5
         if (import.meta.env.DEV) Object.assign(window, { __three: { gl, scene, camera } })
       }}
     >
       <PerformanceMonitor
-        bounds={() => [45, 58]}
         flipflops={4}
         onChange={({ factor }) => setDpr(Math.round((minDpr + (maxDpr - minDpr) * factor) * 10) / 10)}
         onFallback={() => {
@@ -58,6 +62,7 @@ export function Experience() {
       <AbyssScene />
       <MarineSnow />
       <PostFX />
+      <ShaderPrewarm />
     </Canvas>
   )
 }

@@ -157,7 +157,7 @@ function ProceduralSquid({ motion }: { motion: React.RefObject<{ turn: number }>
               color={FLASH}
               intensity={FLASH_INTENSITY}
               seed={i * 2.3}
-              castShadow={i === 0 || quality === 'high'}
+              castShadow={i === 0}
               distance={9}
               modulate={() => (reduced ? 0.8 : flash(time.current, i))}
               onPulse={(p) => (ph.material.emissiveIntensity = 0.9 * p)}

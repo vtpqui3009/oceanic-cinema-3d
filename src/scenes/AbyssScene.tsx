@@ -23,7 +23,6 @@ const CLEARINGS: [number, number, number][] = [[3.3, 4.6, 2.2], [2, 2.8, 1.8], [
 export function AbyssScene() {
   const quality = useSceneStore((s) => s.quality)
   const stage = useSceneStore((s) => s.stage)
-  const rimMap = quality === 'high' ? 2048 : 1024
 
   return (
     <Zone index={3} position={[0, ZONE_Y[3], 0]}>
@@ -39,11 +38,6 @@ export function AbyssScene() {
         color="#2f6fb8"
         distance={16}
         decay={2}
-        castShadow={quality === 'high'}
-        shadow-mapSize={[rimMap, rimMap]}
-        shadow-radius={6}
-        shadow-bias={-0.0004}
-        shadow-normalBias={0.02}
       />
 
       {/* KEY — the esca's bioluminescence lives inside <Anglerfish/> */}
@@ -54,7 +48,7 @@ export function AbyssScene() {
         <ContactShadows
           position={[0, 0.02, 0]}
           scale={6}
-          resolution={quality === 'high' ? 1024 : 512}
+          resolution={quality === 'high' ? 512 : 256}
           blur={2.6}
           far={2.2}
           opacity={0.75}

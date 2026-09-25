@@ -22,7 +22,7 @@ export function ShallowsScene() {
   const quality = useSceneStore((s) => s.quality)
   const stage = useSceneStore((s) => s.stage)
   const reduced = useSceneStore((s) => s.reducedMotion)
-  const sunMap = quality === 'high' ? 2048 : 1024
+  const sunMap = quality === 'high' ? 1024 : 512
 
   useFrame(({ clock }) => {
     causticUniforms.uCausticTime.value = reduced ? 3 : clock.elapsedTime
@@ -41,7 +41,7 @@ export function ShallowsScene() {
         color="#dff8ff"
         castShadow
         shadow-mapSize={[sunMap, sunMap]}
-        shadow-radius={5}
+        shadow-radius={4}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
         shadow-camera-left={-14}

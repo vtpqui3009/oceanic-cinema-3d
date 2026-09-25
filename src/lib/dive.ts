@@ -56,9 +56,24 @@ export function depthFromP(p: number) {
   return DEPTH_KEYS[DEPTH_KEYS.length - 1][1]
 }
 
-/** 1 when the camera is at this zone, fading to 0 by the neighbouring zone. */
+/** 1 when the camera is at this zone, fading to 0 by the neighbouring zone (mesh visibility). */
 export function zoneWeight(index: number, stageF: number) {
   return clamp(1.5 - Math.abs(stageF - index) * 1.5)
+}
+
+/** The one zone whose lights are switched on (they swap halfway between zones). */
+export function activeZone(stageF: number) {
+  return Math.round(stageF)
+}
+
+/**
+ * Light strength for a zone: full around its hero shot, fading to exactly 0
+ * at the halfway point where the lights of the next zone take over — so the
+ * swap is invisible and only one zone's lights are ever evaluated.
+ */
+export function lightWeight(index: number, stageF: number) {
+  if (activeZone(stageF) !== index) return 0
+  return smoothstep(0.5, 0.22, Math.abs(stageF - index))
 }
 
 // ---- atmosphere by depth ---------------------------------------------------

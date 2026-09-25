@@ -40,7 +40,7 @@ export function Seabed({
   const quality = useSceneStore((s) => s.quality)
   const { floor, rocks, rockMat, floorMat } = useMemo(() => {
     const n = new Noise3D(seed)
-    const segs = quality === 'high' ? 200 : 100
+    const segs = quality === 'high' ? 140 : 80
     const floor = new THREE.PlaneGeometry(size, size, segs, segs)
     floor.rotateX(-Math.PI / 2)
     const p = floor.attributes.position as THREE.BufferAttribute
@@ -71,7 +71,9 @@ export function Seabed({
     const count = quality === 'high' ? rockCount : Math.ceil(rockCount * 0.55)
     for (let k = 0; k < count; k++) {
       // icosahedra come unindexed (faceted); weld so normals come out smooth
-      const ico = new THREE.IcosahedronGeometry(1, quality === 'high' ? 5 : 3)
+      // detail 3 = 1 280 triangles (detail 5 was 20 480 per boulder); the
+      // sediment normal map carries the fine surface
+      const ico = new THREE.IcosahedronGeometry(1, quality === 'high' ? 3 : 2)
       ico.deleteAttribute('normal')
       ico.deleteAttribute('uv')
       const geo = mergeVertices(ico)

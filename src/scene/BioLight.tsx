@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { bioLights, bioPulse, type BioLightEntry } from '../lib/bioluminescence'
 import { useSceneStore } from '../state/useSceneStore'
-import { currentZoneWeight, pauseShadow, useZoneIndex } from './Zone'
+import { currentLightWeight, useZoneIndex } from './Zone'
 
 interface Props {
   color: THREE.ColorRepresentation
@@ -23,6 +23,7 @@ interface Props {
  */
 export function BioLight({ color, intensity, distance = 8, castShadow = true, seed = 0, onPulse, modulate }: Props) {
   const light = useRef<THREE.PointLight>(null!)
+  const frame = useRef(0)
   const quality = useSceneStore((s) => s.quality)
   const reduced = useSceneStore((s) => s.reducedMotion)
   const zone = useZoneIndex()
@@ -34,6 +35,7 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
   useEffect(() => {
     entry.object = light.current
     light.current.userData.selfManaged = true
+    light.current.shadow.autoUpdate = false
     bioLights.add(entry)
     return () => void bioLights.delete(entry)
   }, [entry])
@@ -42,14 +44,15 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
     // reduced motion: a much slower, shallower breath
     const t = reduced ? clock.elapsedTime * 0.25 : clock.elapsedTime
     const p = (reduced ? 0.95 + (bioPulse(t, seed) - 0.9) * 0.3 : bioPulse(t, seed)) * (modulate?.() ?? 1)
-    const w = currentZoneWeight(zone)
+    const w = currentLightWeight(zone)
     light.current.intensity = intensity * p * w
-    if (castShadow) pauseShadow(light.current.shadow, w > 0)
+    // cube shadow maps are six renders each: refresh them at half rate
+    if (castShadow) light.current.shadow.needsUpdate = (frame.current++ & 1) === 0
     entry.strength = p * w
     onPulse?.(p)
   })
 
-  const mapSize = quality === 'high' ? 1024 : 512
+  const mapSize = quality === 'high' ? 512 : 256
   return (
     <pointLight
       ref={light}
@@ -59,7 +62,7 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
       decay={2}
       castShadow={castShadow}
       shadow-mapSize={[mapSize, mapSize]}
-      shadow-radius={quality === 'high' ? 7 : 3}
+      shadow-radius={quality === 'high' ? 5 : 2}
       shadow-bias={-0.0008}
       shadow-normalBias={0.015}
       shadow-camera-near={0.04}

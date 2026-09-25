@@ -65,8 +65,6 @@ function School({ center = [0, 0, 0] }: Props) {
       metalness: 0.12,
       clearcoat: 0.8,
       clearcoatRoughness: 0.2,
-      iridescence: 0.45,
-      iridescenceIOR: 1.5,
       envMapIntensity: 1.2,
     })
     return { geometry, material }
