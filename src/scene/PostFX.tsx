@@ -92,9 +92,10 @@ export function PostFX() {
   }, [camera, hi, focus])
   const vignette = useMemo(() => ({ current: null as VignetteEffect | null }), [])
   const want = useMemo(() => new THREE.Vector3(), [])
+  const dir = useMemo(() => new THREE.Vector3(), [])
   const bloomRef = useMemo(() => ({ current: null as { intensity: number } | null }), [])
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     const s = dive.stageF
     const depth = s / 3
     grade.uniforms.get('uExposure')!.value = liveAtmosphere.exposure
@@ -107,10 +108,10 @@ export function PostFX() {
     // pull focus onto the nearest stage's subject; open water between stages
     const subject = subjects[Math.round(s)]
     if (subject) want.copy(subject)
-    else want.copy(camera.position).add(camera.getWorldDirection(focus.clone()).multiplyScalar(6))
+    else want.copy(camera.position).add(camera.getWorldDirection(dir).multiplyScalar(6))
     // rack focus smoothly, but cut straight to it after a big jump (new zone)
     if (focus.distanceToSquared(want) > 16) focus.copy(want)
-    else focus.lerp(want, 0.08)
+    else focus.lerp(want, 1 - Math.exp(-5 * Math.min(delta, 0.1)))
   })
 
   if (NO_FX) return null

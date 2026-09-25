@@ -15,6 +15,16 @@ export function useZoneIndex() {
  */
 export const zoneOverride = { value: -1 }
 
+/**
+ * True while a zone can be seen (or is being pre-compiled). Creatures bail
+ * out of their per-frame simulation when their zone is hidden: nothing off
+ * screen costs CPU.
+ */
+export function zoneVisible(index: number | null) {
+  if (index === null || zoneOverride.value >= 0) return true
+  return zoneWeight(index, dive.stageF) > 0
+}
+
 /** Light strength (0…1) for lights inside a zone; 1 outside any zone. */
 export function currentLightWeight(index: number | null) {
   if (index === null) return 1
@@ -47,8 +57,13 @@ export function Zone({ index, position, children }: { index: number; position?: 
     const forced = zoneOverride.value >= 0
     const lit = forced ? zoneOverride.value === index : activeZone(dive.stageF) === index
     const w = currentLightWeight(index)
-    const mask = forced || zoneWeight(index, dive.stageF) > 0 ? 1 : 1 << HIDDEN_LAYER
-    // cheap enough every frame, and it catches children that mount late (Suspense)
+    const visible = zoneVisible(index)
+    const mask = visible ? 1 : 1 << HIDDEN_LAYER
+    // hidden zones (hundreds of bones) skip the scene-wide matrix update;
+    // they are refreshed the moment they come back into view
+    group.current.matrixWorldAutoUpdate = visible
+    // walk every frame, hidden or not: creatures mount late (Suspense) and
+    // their lights/meshes must be switched off even in zones out of view
     group.current.traverse((o) => {
       const light = o as THREE.Light
       if (light.isLight) {

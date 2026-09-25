@@ -21,6 +21,8 @@ export const dive = {
   stageF: 0,
   /** Depth in metres for the HUD. */
   depth: 0,
+  /** The squid's position along SQUID_PATH (0…1), eased with inertia. */
+  squidU: 0.03,
 }
 
 /**

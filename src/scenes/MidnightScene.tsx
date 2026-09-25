@@ -1,12 +1,15 @@
-import { useRef } from 'react'
+import { useMemo, useRef } from 'react'
+import { zoneVisible } from '../scene/Zone'
 import { ContactShadows } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { Zone } from '../scene/Zone'
+import { SHOW_CAST } from '../creatures/ambient/cast'
 import { AimedDirectional, AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
 import { Squid } from '../creatures/squid/Squid'
-import { SQUID_PATH, ZONE_Y, dive, squidProgress } from '../lib/dive'
+import { Lanternfish } from '../creatures/ambient/Lanternfish'
+import { SQUID_PATH, ZONE_Y, dive } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
 
 const ORIGIN: [number, number, number] = [0, ZONE_Y[2], 0]
@@ -20,11 +23,13 @@ const FLOOR = -5
 export function MidnightScene() {
   const stage = useSceneStore((s) => s.stage)
   const shadow = useRef<THREE.Group>(null!)
-  const at = new THREE.Vector3()
+  const at = useMemo(() => new THREE.Vector3(), [])
 
+  const zone = 2 // this component renders the Zone, so it sits outside its context
   useFrame(() => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     if (!shadow.current) return
-    SQUID_PATH.getPointAt(squidProgress(dive.p), at)
+    SQUID_PATH.getPointAt(dive.squidU, at)
     shadow.current.position.set(at.x, FLOOR + 0.06, at.z)
   })
 
@@ -37,13 +42,21 @@ export function MidnightScene() {
 
       {/* KEY — the photophores */}
       <Squid zoneOrigin={ORIGIN} />
+      {SHOW_CAST && <Lanternfish />}
 
       <Seabed position={[0, FLOOR, -6]} size={56} seed={29} flat={10} relief={0.8} color="#4d5c68" rockColor="#1c242b" rocks={20} />
-      {stage === 2 && (
-        <group ref={shadow}>
-          <ContactShadows scale={7} resolution={512} blur={3} far={7} opacity={0.5} color="#000000" />
-        </group>
-      )}
+      <group ref={shadow}>
+        {stage === 2 && (
+          <ContactShadows
+            scale={7}
+            resolution={512}
+            blur={3}
+            far={7}
+            opacity={0.5}
+            color="#000000"
+          />
+        )}
+      </group>
     </Zone>
   )
 }

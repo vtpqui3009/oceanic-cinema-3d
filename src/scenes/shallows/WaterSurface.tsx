@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { liveAtmosphere } from '../../scene/Atmosphere'
@@ -59,7 +60,9 @@ export function WaterSurface({ y = 10, sunDir = [0.3, 1, 0.2] as [number, number
     [sunDir],
   )
 
+  const zone = useZoneIndex()
   useFrame(({ clock }) => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     material.uniforms.uTime.value = clock.elapsedTime
     material.uniforms.uFogColor.value.copy(liveAtmosphere.fog)
     material.uniforms.uFogDensity.value = liveAtmosphere.density

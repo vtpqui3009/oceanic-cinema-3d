@@ -1,4 +1,4 @@
-import { useMemo, useRef } from 'react'
+import { useMemo } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
 import * as THREE from 'three'
 import { bioLights } from '../lib/bioluminescence'
@@ -101,21 +101,56 @@ export function MarineSnow({ tint = '#9cc3d2' }: { tint?: THREE.ColorRepresentat
     return { geometry, material }
   }, [count, tint])
 
-  const flakes = useRef<THREE.InstancedMesh>(null!)
-  const flakeData = useMemo(() => {
+  // real, lit flakes — placed, spun and wrapped around the camera entirely in
+  // the vertex shader (no per-flake CPU work, no matrix upload per frame)
+  const flakes = useMemo(() => {
     const rng = createRng(31)
-    return Array.from({ length: flakeCount }, () => ({
-      p: new THREE.Vector3(rng() * EXTENT.x * 0.6, rng() * EXTENT.y * 0.6, rng() * EXTENT.z * 0.6),
-      s: 0.006 + rng() * 0.014,
-      spin: new THREE.Vector3(rng(), rng(), rng()).multiplyScalar(0.6),
-      fall: 0.02 + rng() * 0.03,
-      phase: rng() * 10,
-    }))
-  }, [flakeCount])
-  const flakeGeo = useMemo(() => new THREE.IcosahedronGeometry(1, 0), [])
-  const tmp = useMemo(() => new THREE.Object3D(), [])
-  const box = useMemo(() => EXTENT.clone().multiplyScalar(0.6), [])
-  const wrap = (x: number, c: number, e: number) => ((((x - c + e / 2) % e) + e) % e) - e / 2 + c
+    const geo = new THREE.IcosahedronGeometry(1, 0)
+    const a = new Float32Array(flakeCount * 4)
+    const b = new Float32Array(flakeCount * 4)
+    for (let k = 0; k < flakeCount; k++) {
+      a.set([rng() * EXTENT.x, rng() * EXTENT.y, rng() * EXTENT.z, 0.006 + rng() * 0.014], k * 4)
+      b.set([0.02 + rng() * 0.03, rng() * 10, rng() * 0.6, rng() * 0.6], k * 4)
+    }
+    geo.setAttribute('aFlakeA', new THREE.InstancedBufferAttribute(a, 4))
+    geo.setAttribute('aFlakeB', new THREE.InstancedBufferAttribute(b, 4))
+    const mat = new THREE.MeshStandardMaterial({ color: '#b9c8cc', roughness: 0.7, emissive: '#0a1a22', emissiveIntensity: 0.4 })
+    const box = EXTENT.clone().multiplyScalar(0.6)
+    mat.onBeforeCompile = (shader) => {
+      shader.uniforms.uTime = material.uniforms.uTime
+      shader.uniforms.uCam = material.uniforms.uCam
+      shader.uniforms.uBox = { value: box }
+      shader.vertexShader = shader.vertexShader
+        .replace(
+          '#include <common>',
+          /* glsl */ `#include <common>
+          uniform float uTime; uniform vec3 uCam; uniform vec3 uBox;
+          attribute vec4 aFlakeA; attribute vec4 aFlakeB;
+          mat3 flakeRot() {
+            vec3 r = vec3(uTime * aFlakeB.z + aFlakeB.y, uTime * aFlakeB.w, uTime * 0.3);
+            float cx = cos(r.x), sx = sin(r.x), cy = cos(r.y), sy = sin(r.y), cz = cos(r.z), sz = sin(r.z);
+            return mat3(cy, 0.0, -sy, 0.0, 1.0, 0.0, sy, 0.0, cy) * mat3(1.0, 0.0, 0.0, 0.0, cx, sx, 0.0, -sx, cx) * mat3(cz, sz, 0.0, -sz, cz, 0.0, 0.0, 0.0, 1.0);
+          }`,
+        )
+        .replace('#include <beginnormal_vertex>', '#include <beginnormal_vertex>\nobjectNormal = flakeRot() * objectNormal;')
+        .replace(
+          '#include <begin_vertex>',
+          /* glsl */ `#include <begin_vertex>
+          {
+            vec3 p = aFlakeA.xyz * 0.6 + vec3(sin(uTime * 0.2 + aFlakeB.y) * 0.3, -uTime * aFlakeB.x, cos(uTime * 0.17 + aFlakeB.y) * 0.3);
+            vec3 w = mod(p - uCam + uBox * 0.5, uBox) - uBox * 0.5 + uCam;
+            // never let a flake sit right in front of the lens
+            float near = smoothstep(2.2, 3.6, distance(w, uCam));
+            transformed = flakeRot() * (transformed * vec3(1.0, 0.35, 0.8) * aFlakeA.w * near) + w;
+          }`,
+        )
+    }
+    mat.customProgramCacheKey = () => 'marine-flakes'
+    const mesh = new THREE.InstancedMesh(geo, mat, flakeCount)
+    mesh.frustumCulled = false
+    mesh.receiveShadow = true
+    return mesh
+  }, [flakeCount, material])
 
   useFrame(({ clock, camera }) => {
     const t = reduced ? 0 : clock.elapsedTime
@@ -135,29 +170,12 @@ export function MarineSnow({ tint = '#9cc3d2' }: { tint?: THREE.ColorRepresentat
     }
     u.uLightCount.value = i
 
-    const c = camera.position
-    flakeData.forEach((f, k) => {
-      tmp.position.set(
-        wrap(f.p.x + Math.sin(t * 0.2 + f.phase) * 0.3, c.x, box.x),
-        wrap(f.p.y - t * f.fall, c.y, box.y),
-        wrap(f.p.z + Math.cos(t * 0.17 + f.phase) * 0.3, c.z, box.z),
-      )
-      tmp.rotation.set(t * f.spin.x + f.phase, t * f.spin.y, t * f.spin.z)
-      // never let a flake sit right in front of the lens
-      const near = THREE.MathUtils.smoothstep(tmp.position.distanceTo(c), 2.2, 3.6)
-      tmp.scale.set(f.s * near, f.s * 0.35 * near, f.s * 0.8 * near)
-      tmp.updateMatrix()
-      flakes.current.setMatrixAt(k, tmp.matrix)
-    })
-    flakes.current.instanceMatrix.needsUpdate = true
   })
 
   return (
     <group>
       <points geometry={geometry} material={material} frustumCulled={false} />
-      <instancedMesh ref={flakes} args={[flakeGeo, undefined, flakeCount]} receiveShadow frustumCulled={false}>
-        <meshStandardMaterial color="#b9c8cc" roughness={0.7} emissive="#0a1a22" emissiveIntensity={0.4} />
-      </instancedMesh>
+      <primitive object={flakes} />
     </group>
   )
 }

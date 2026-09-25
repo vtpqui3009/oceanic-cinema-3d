@@ -1,7 +1,9 @@
 import { ContactShadows } from '@react-three/drei'
 import * as THREE from 'three'
 import { Anglerfish } from '../creatures/anglerfish/Anglerfish'
+import { CombJellies, SeaPens } from '../creatures/ambient/AbyssGlow'
 import { Zone } from '../scene/Zone'
+import { SHOW_CAST } from '../creatures/ambient/cast'
 import { AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
 import { ZONE_Y, subjects } from '../lib/dive'
@@ -44,6 +46,8 @@ export function AbyssScene() {
       <Anglerfish position={FISH_POS} rotation={[0, -0.25, 0]} />
 
       <Seabed clearings={CLEARINGS} />
+      {SHOW_CAST && <CombJellies />}
+      {SHOW_CAST && <SeaPens clearings={CLEARINGS} />}
       {stage === 3 && (
         <ContactShadows
           position={[0, 0.02, 0]}

@@ -1,4 +1,5 @@
 import { Suspense, useMemo } from 'react'
+import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { createPortal, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { buildAnglerfish } from './buildAnglerfish'
@@ -57,7 +58,9 @@ function ProceduralAnglerfish() {
 
   const coreBase = useMemo(() => rig.coreMaterial.color.clone(), [rig])
 
+  const zone = useZoneIndex()
   useFrame(({ clock }) => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     // reduced motion: hold a composed, slightly-open-mouthed pose
     const t = reduced ? 2.2 : clock.elapsedTime
     // strike cycle: [jaw gape, body lunge, tail boost] keyed over time

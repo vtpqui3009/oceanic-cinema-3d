@@ -1,4 +1,5 @@
 import { Fragment, Suspense, useMemo, useRef } from 'react'
+import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { createPortal, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { buildSquid } from './buildSquid'
@@ -7,7 +8,8 @@ import { AimedSpot } from '../../scene/AimedLight'
 import { CreatureModel } from '../CreatureModel'
 import { useProcedural } from '../../lib/useProcedural'
 import { CREATURES, userModelUrl } from '../../lib/models'
-import { SQUID_PATH, STAGE_P, dive, squidProgress, subjects } from '../../lib/dive'
+import { SQUID_PATH, dive, subjects } from '../../lib/dive'
+import { damp } from '../../lib/smooth'
 import { useSceneStore } from '../../state/useSceneStore'
 
 const FLASH = new THREE.Color('#a9dcff')
@@ -22,29 +24,32 @@ export function Squid({ zoneOrigin }: { zoneOrigin: [number, number, number] }) 
   const group = useRef<THREE.Group>(null!)
   const reduced = useSceneStore((s) => s.reducedMotion)
   const url = userModelUrl('squid')
-  const at = new THREE.Vector3()
-  const ahead = new THREE.Vector3()
+  const v = useMemo(() => ({ at: new THREE.Vector3(), ahead: new THREE.Vector3(), world: new THREE.Vector3() }), [])
+  const { at, ahead } = v
   const motion = useRef({ turn: 0, heading: 0, bank: 0 })
 
+  const zone = useZoneIndex()
   useFrame(({ clock }, delta) => {
-    // reduced motion: hold the squid where the (static) hero shot frames it
-    const u = squidProgress(reduced ? STAGE_P[2] : dive.p)
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
+    // eased by the camera rig (inertia; held at the hero shot in reduced motion)
+    const u = dive.squidU
+    const dt = Math.min(delta, 0.1)
     SQUID_PATH.getPointAt(u, at)
-    SQUID_PATH.getPointAt(Math.min(u + 0.01, 1), ahead)
-    if (u >= 0.999) ahead.copy(at).add(SQUID_PATH.getTangentAt(1))
+    if (u >= 0.99) ahead.copy(at).add(SQUID_PATH.getTangentAt(1, v.world))
+    else SQUID_PATH.getPointAt(u + 0.01, ahead)
     const t = reduced ? 0 : clock.elapsedTime
     at.y += Math.sin(t * 0.8) * 0.05
     group.current.position.set(at.x - zoneOrigin[0], at.y - zoneOrigin[1], at.z - zoneOrigin[2])
     ahead.set(ahead.x - zoneOrigin[0], ahead.y - zoneOrigin[1], ahead.z - zoneOrigin[2])
     // local +Z (mantle tip) leads
-    group.current.lookAt(group.current.parent!.localToWorld(ahead.clone()))
+    group.current.lookAt(group.current.parent!.localToWorld(v.world.copy(ahead)))
     // yaw rate → arms swing out of the turn, body banks into it
     const m = motion.current
     const heading = Math.atan2(ahead.x - group.current.position.x, ahead.z - group.current.position.z)
     const dh = Math.atan2(Math.sin(heading - m.heading), Math.cos(heading - m.heading))
     m.heading = heading
-    m.turn = THREE.MathUtils.lerp(m.turn, THREE.MathUtils.clamp(dh / Math.max(delta, 1e-3), -1.5, 1.5), 0.1)
-    m.bank = THREE.MathUtils.lerp(m.bank, -m.turn * 0.25, 0.05)
+    m.turn = damp(m.turn, THREE.MathUtils.clamp(dh / Math.max(dt, 1e-3), -1.5, 1.5), 6, dt)
+    m.bank = damp(m.bank, -m.turn * 0.25, 3, dt)
     group.current.rotateZ(m.bank + Math.sin(t * 0.6) * 0.03)
     subjects[2] ??= new THREE.Vector3()
     group.current.getWorldPosition(subjects[2])
@@ -103,7 +108,9 @@ function ProceduralSquid({ motion }: { motion: React.RefObject<{ turn: number }>
   const sim = useMemo(() => rig.arms.map((chain) => chain.map((): ArmState => ({ ax: 0, ay: 0, vx: 0, vy: 0 }))), [rig])
   const time = useRef(0)
 
+  const zone = useZoneIndex()
   useFrame(({ clock }, delta) => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     if (reduced) {
       time.current = 1.2
       return

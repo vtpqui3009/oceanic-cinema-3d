@@ -1,9 +1,11 @@
 import { Suspense, useLayoutEffect, useMemo, useRef } from 'react'
+import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import defaultFishUrl from '../../assets/barramundi.glb?url'
 import { DEFAULT_FLOCK, createFlock, stepFlock, type FlockParams } from '../../lib/boids'
 import { deform } from '../../lib/deform'
+import { damp } from '../../lib/smooth'
 import { subjects } from '../../lib/dive'
 import { CREATURES, userModelUrl } from '../../lib/models'
 import { useSafeGLTF } from '../../lib/loadGLTF'
@@ -131,7 +133,9 @@ function School({ center = [0, 0, 0] }: Props) {
     writeInstances()
   }, [flock])
 
+  const zone = useZoneIndex()
   useFrame(({ clock }, delta) => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     if (reduced) return // reduced motion: the school holds its formation
     const t = clock.elapsedTime
     // the school's wandering "intent"
@@ -142,7 +146,7 @@ function School({ center = [0, 0, 0] }: Props) {
     flock.forEach((b) => {
       // bank into turns: roll ∝ signed yaw rate
       const turn = Math.atan2(b.prev.x * b.vel.z - b.prev.z * b.vel.x, b.prev.x * b.vel.x + b.prev.z * b.vel.z) / Math.max(dt, 1e-3)
-      b.bank = THREE.MathUtils.lerp(b.bank, THREE.MathUtils.clamp(-turn * 0.25, -0.6, 0.6), 0.08)
+      b.bank = damp(b.bank, THREE.MathUtils.clamp(-turn * 0.25, -0.6, 0.6), 5, dt)
       // faster fish beat their tails faster
       b.phase += dt * (7 + b.vel.length() * 5)
     })

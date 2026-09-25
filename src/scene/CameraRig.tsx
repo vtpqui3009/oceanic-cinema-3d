@@ -4,9 +4,10 @@ import * as THREE from 'three'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import {
-  SQUID_PATH, ZONE_Y, depthFromP, dive, holdWeight, scrollProxy, squidProgress, stageFromP, subjects, trackingWeight,
+  SQUID_PATH, STAGE_P, ZONE_Y, depthFromP, dive, holdWeight, scrollProxy, squidProgress, stageFromP, subjects, trackingWeight,
 } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
+import { SmoothVec3, damp, smoothDamp } from '../lib/smooth'
 
 gsap.registerPlugin(ScrollTrigger)
 
@@ -87,13 +88,14 @@ function samplePath(p: number, pos: THREE.Vector3, tgt: THREE.Vector3) {
 }
 
 /** Tracking shot: behind, above and off to the side of the swimming squid. */
-function sampleTracking(p: number, pos: THREE.Vector3, tgt: THREE.Vector3) {
-  const u = squidProgress(p)
-  const at = SQUID_PATH.getPointAt(u)
-  const fwd = SQUID_PATH.getTangentAt(u).normalize()
-  const side = new THREE.Vector3().crossVectors(fwd, THREE.Object3D.DEFAULT_UP).normalize()
-  pos.copy(at).addScaledVector(fwd, -5.2).addScaledVector(side, 2.3).add(new THREE.Vector3(0, 1.4, 0))
-  tgt.copy(at).addScaledVector(fwd, 0.6)
+const _at = new THREE.Vector3(), _fwd = new THREE.Vector3(), _side = new THREE.Vector3()
+function sampleTracking(u: number, pos: THREE.Vector3, tgt: THREE.Vector3) {
+  SQUID_PATH.getPointAt(u, _at)
+  SQUID_PATH.getTangentAt(u, _fwd).normalize()
+  _side.crossVectors(_fwd, THREE.Object3D.DEFAULT_UP).normalize()
+  pos.copy(_at).addScaledVector(_fwd, -5.2).addScaledVector(_side, 2.3)
+  pos.y += 1.4
+  tgt.copy(_at).addScaledVector(_fwd, 0.6)
 }
 
 /**
@@ -113,6 +115,7 @@ export function CameraRig() {
     () => ({
       pos: new THREE.Vector3(), tgt: new THREE.Vector3(), tPos: new THREE.Vector3(), tTgt: new THREE.Vector3(),
       curTgt: new THREE.Vector3(), started: false,
+      camPos: new SmoothVec3(), camTgt: new SmoothVec3(), squidV: { v: 0 },
     }),
     [],
   )
@@ -121,7 +124,7 @@ export function CameraRig() {
     const tween = gsap.to(scrollProxy, {
       p: 1,
       ease: 'none',
-      scrollTrigger: { trigger: '.dive', start: 'top top', end: 'bottom bottom', scrub: reduced ? true : 1.4 },
+      scrollTrigger: { trigger: '.dive', start: 'top top', end: 'bottom bottom', scrub: reduced ? true : 1 },
     })
     return () => {
       tween.scrollTrigger?.kill()
@@ -135,6 +138,10 @@ export function CameraRig() {
     dive.p = p
     dive.stageF = stageFromP(p)
     dive.depth = depthFromP(p)
+    const step = Math.min(dt, 0.1)
+    // the squid swims with its own inertia instead of jumping with the scroll
+    const squidTarget = squidProgress(reduced ? STAGE_P[2] : p)
+    dive.squidU = pinned || reduced ? squidTarget : smoothDamp(dive.squidU, squidTarget, tmp.squidV, 0.9, step)
 
     const stage = Math.round(dive.stageF)
     const store = useSceneStore.getState()
@@ -151,7 +158,7 @@ export function CameraRig() {
       tmp.pos.set(...key.pos)
       tmp.tgt.set(...key.target)
       // scene III is framed by the tracking shot, not a spline key
-      if (stage === 2) sampleTracking(key.p, tmp.pos, tmp.tgt)
+      if (stage === 2) sampleTracking(dive.squidU, tmp.pos, tmp.tgt)
       fov = key.fov
       tmp.pos.sub(tmp.tgt).multiplyScalar(pull).add(tmp.tgt)
       camera.position.copy(tmp.pos)
@@ -160,7 +167,7 @@ export function CameraRig() {
       fov = samplePath(p, tmp.pos, tmp.tgt)
       const w = trackingWeight(p)
       if (w > 0) {
-        sampleTracking(p, tmp.tPos, tmp.tTgt)
+        sampleTracking(dive.squidU, tmp.tPos, tmp.tTgt)
         tmp.pos.lerp(tmp.tPos, w)
         tmp.tgt.lerp(tmp.tTgt, w)
       }
@@ -184,18 +191,19 @@ export function CameraRig() {
       // lower so the subject sits higher in the frame
       tmp.tgt.y -= tmp.pos.distanceTo(tmp.tgt) * 0.09 * (pull - 1) / 0.3
       if (!tmp.started || pinned) {
-        camera.position.copy(tmp.pos)
-        tmp.curTgt.copy(tmp.tgt)
+        tmp.camPos.snap(tmp.pos)
+        tmp.camTgt.snap(tmp.tgt)
         tmp.started = true
       }
-      const k = 1 - Math.exp(-Math.min(dt, 0.1) * 2.6)
-      camera.position.lerp(tmp.pos, k)
-      tmp.curTgt.lerp(tmp.tgt, k)
+      // critically-damped springs: the camera gathers and sheds speed
+      // smoothly whenever the scroll starts or stops
+      camera.position.copy(tmp.camPos.update(tmp.pos, 0.55, step))
+      tmp.curTgt.copy(tmp.camTgt.update(tmp.tgt, 0.45, step))
     }
     camera.lookAt(tmp.curTgt)
     fov = portraitFov(fov, size.width / size.height)
     if (Math.abs(camera.fov - fov) > 0.01) {
-      camera.fov += (fov - camera.fov) * (reduced ? 1 : 0.08)
+      camera.fov = reduced ? fov : damp(camera.fov, fov, 5, Math.min(dt, 0.1))
       camera.updateProjectionMatrix()
     }
   })

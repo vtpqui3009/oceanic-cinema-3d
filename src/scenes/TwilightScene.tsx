@@ -1,8 +1,10 @@
 import { ContactShadows } from '@react-three/drei'
 import { Zone } from '../scene/Zone'
+import { SHOW_CAST } from '../creatures/ambient/cast'
 import { AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
 import { Jellyfish } from '../creatures/jellyfish/Jellyfish'
+import { DriftJellies } from '../creatures/ambient/DriftJellies'
 import { ZONE_Y } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
 
@@ -23,10 +25,19 @@ export function TwilightScene() {
 
       {/* KEY — inside the bell */}
       <Jellyfish position={[0, 0, 0]} />
+      {SHOW_CAST && <DriftJellies />}
 
       <Seabed position={[0.5, -5.2, -1]} size={36} seed={11} flat={3} relief={2.2} color="#6d8796" rockColor="#26323b" rocks={16} />
       {stage === 1 && (
-        <ContactShadows position={[0, -5.15, 0]} scale={9} resolution={quality === 'high' ? 512 : 256} blur={2.8} far={5.5} opacity={0.6} color="#000814" />
+        <ContactShadows
+          position={[0, -5.15, 0]}
+          scale={9}
+          resolution={quality === 'high' ? 512 : 256}
+          blur={2.8}
+          far={5.5}
+          opacity={0.6}
+          color="#000814"
+        />
       )}
     </Zone>
   )

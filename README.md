@@ -62,6 +62,18 @@ Một giá trị cuộn `p ∈ [0, 1]` (GSAP ScrollTrigger, `scrub`) điều khi
 - `prefers-reduced-motion`: không bay camera — mỗi cảnh là một cú cắt tĩnh
   vào khung hình chính; sinh vật giữ tư thế tĩnh, đèn thở rất chậm.
 
+## Độ mượt chuyển động
+
+- Camera bám đường lặn bằng **lò xo giảm chấn tới hạn** (SmoothDamp) thay vì
+  lerp: tăng tốc và hãm lại êm mỗi khi bắt đầu/dừng cuộn, không giật khi cuộn
+  bằng bánh xe chuột từng nấc.
+- Mọi phép làm mượt khác (nghiêng mình của cá và mực, đổi tiêu cự, lấy nét
+  DoF) dùng damping theo thời gian thực, nên cảm giác như nhau ở 30, 60 hay
+  144 Hz.
+- Con mực có quán tính riêng dọc đường bơi (không nhảy theo từng nấc cuộn),
+  camera tracking bám theo đúng vị trí đó.
+- Không cấp phát bộ nhớ trong vòng lặp khung hình (tránh khựng do GC).
+
 ## Animation (procedural)
 
 | Sinh vật | Chuyển động | Kỹ thuật |
@@ -77,6 +89,24 @@ bám theo trọng tâm đàn cá / chuông sứa trong lúc dừng ở cảnh đ
 
 `prefers-reduced-motion`: đàn cá giữ đội hình tĩnh (không chạy boids), sứa
 và mực đứng yên ở tư thế đẹp, cá câu không đớp mồi, đèn chỉ thở rất chậm.
+
+## Dàn diễn viên phụ (GPU-animated)
+
+Mỗi cảnh có thêm sinh vật nền. Toàn bộ chuyển động của chúng là hàm của
+`(uTime, thuộc tính riêng từng con)` tính trong vertex shader (`lib/gpuSwarm.ts`):
+**một draw call mỗi loài, không có vòng lặp JS nào theo từng con**. Mỗi khung
+chỉ ghi đúng một uniform `uTime`.
+
+| Cảnh | Loài | Số lượng (desktop / di động) | Chuyển động |
+| --- | --- | --- | --- |
+| I | Đàn cá mồi (bait ball) | 180 / 70 | Xoáy thành cột, con trong bơi nhanh hơn con ngoài, quẫy đuôi, lấp lánh ánh kim |
+| I | Cá đuối manta | 1 | Lượn vòng trên cao, cánh vỗ thành sóng từ thân ra mép (vertex shader) |
+| II | Sứa nhỏ phát quang | 18 / 8 | Mỗi con co bóp theo nhịp riêng, xúc tu trôi theo sau, rìa chuông sáng (Fresnel) |
+| III | Cá đèn (lanternfish) | 120 / 45 | Bơi thành đàn theo vệt của con đầu đàn, hàng photophore dưới bụng phát sáng |
+| IV | Sứa lược (ctenophore) | 7 / 3 | Tám hàng lông bơi tạo cầu vồng chạy dọc thân, xoay chậm |
+| IV | Lông biển (sea pen) | 22 / 9 | Đung đưa trong dòng chảy, các polyp loé sáng thành sóng chạy dọc thân |
+
+`?cast=0` ẩn dàn diễn viên phụ để so sánh hiệu năng A/B.
 
 ## Hậu kỳ (post-processing)
 
@@ -104,6 +134,10 @@ renderer tắt), theo thứ tự:
   dùng alpha), texture da 512 px, lưới thưa hơn, không DoF, không MSAA.
 - **`PerformanceMonitor`** (drei) đo FPS liên tục: độ phân giải (DPR) trượt
   giữa min–max theo FPS (bắt đầu ở 1, tối đa 1,5); nếu vẫn không giữ nổi → tắt DoF.
+- **Vùng ngoài khung hình không tốn CPU:** mô phỏng boids, lò xo xúc tu, tay
+  mực… chỉ chạy khi vùng đó đang hiện; vùng ẩn còn bỏ qua cập nhật ma trận
+  thế giới (hàng trăm đốt xương). Tuyết biển (cả mảnh vụn nhận bóng) chạy hoàn
+  toàn trên GPU.
 - **Chỉ một vùng được chiếu sáng tại một thời điểm:** đèn của vùng không
   xem bị tắt hẳn (`visible = false`), nên mỗi pixel chỉ tính 4–6 đèn và 1
   shadow map thay vì 16 đèn / 6 shadow map. Đèn của vùng cũ mờ về 0 đúng ở

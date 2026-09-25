@@ -1,9 +1,12 @@
 import { ContactShadows } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Zone } from '../scene/Zone'
+import { SHOW_CAST } from '../creatures/ambient/cast'
 import { AimedDirectional, AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
 import { FishSchool } from '../creatures/fish/FishSchool'
+import { BaitBall } from '../creatures/ambient/BaitBall'
+import { MantaRay } from '../creatures/ambient/MantaRay'
 import { WaterSurface } from './shallows/WaterSurface'
 import { GodRays } from './shallows/GodRays'
 import { causticUniforms } from '../lib/caustics'
@@ -57,10 +60,21 @@ export function ShallowsScene() {
       <AimedSpot aim={[0, 0, 0]} position={[-4, 8, -10]} angle={0.6} penumbra={1} intensity={80} color="#b9f2ff" distance={30} decay={2} />
 
       <FishSchool center={[0, 0.3, 0]} />
+      {/* supporting cast: GPU-animated, one draw call each */}
+      {SHOW_CAST && <BaitBall />}
+      {SHOW_CAST && <MantaRay />}
 
       <Seabed position={[0, -6, 0]} seed={3} flat={6} relief={1.1} color="#d9cfb2" rockColor="#5b6a63" rocks={18} caustics />
       {stage === 0 && (
-        <ContactShadows position={[0, -5.9, 0]} scale={16} resolution={512} blur={3} far={7} opacity={0.35} color="#062a33" />
+        <ContactShadows
+          position={[0, -5.9, 0]}
+          scale={16}
+          resolution={512}
+          blur={3}
+          far={7}
+          opacity={0.35}
+          color="#062a33"
+        />
       )}
     </Zone>
   )

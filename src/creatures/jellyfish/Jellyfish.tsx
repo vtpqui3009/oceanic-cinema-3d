@@ -1,4 +1,5 @@
 import { Suspense, useMemo, useRef } from 'react'
+import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { createPortal, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { buildJellyfish } from './buildJellyfish'
@@ -71,7 +72,9 @@ function ProceduralJellyfish() {
   )
   const alarmLevel = useRef(0)
 
+  const zone = useZoneIndex()
   useFrame(({ clock }, delta) => {
+    if (!zoneVisible(zone)) return // off screen: no simulation cost
     if (reduced) {
       rig.uniforms.uPulse.value = 0.15
       return
