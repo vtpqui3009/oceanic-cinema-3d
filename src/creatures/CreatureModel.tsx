@@ -3,6 +3,7 @@ import { createPortal } from '@react-three/fiber'
 import { useAnimations, useGLTF } from '@react-three/drei'
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js'
 import * as THREE from 'three'
+import { useSceneStore } from '../state/useSceneStore'
 
 interface Props {
   url: string
@@ -21,8 +22,8 @@ interface Props {
 
 /**
  * Generic loader for user-supplied creature models: normalises scale and
- * pivot, enables shadows, and plays the best-matching animation clip with a
- * crossfade.
+ * pivot, enables shadows, plays the best-matching animation clip and, when
+ * the model has several, crossfades between them.
  */
 export function CreatureModel({
   url,
@@ -63,13 +64,32 @@ export function CreatureModel({
   }, [gltf, length, anchorPattern, fallbackAnchor])
 
   const { actions, names, mixer } = useAnimations(gltf.animations, group)
+  const reduced = useSceneStore((st) => st.reducedMotion)
   useEffect(() => {
-    mixer.timeScale = timeScale
-    const name = preferClips.map((re) => names.find((n) => re.test(n))).find(Boolean) ?? names[0]
-    const action = name ? actions[name] : null
-    action?.reset().fadeIn(0.8).play()
-    return () => void action?.fadeOut(0.8)
-  }, [actions, names, mixer, preferClips, timeScale])
+    if (!names.length) return
+    mixer.timeScale = reduced ? 0 : timeScale
+    // preferred clips first (swim, idle…), then the rest
+    const ordered = [
+      ...preferClips.flatMap((re) => names.filter((n) => re.test(n))),
+      ...names,
+    ].filter((n, i, a) => a.indexOf(n) === i)
+    let i = 0
+    let current = actions[ordered[0]]!
+    current.reset().fadeIn(0.8).play()
+    if (ordered.length < 2 || reduced) return () => void current.fadeOut(0.8)
+    // alternate between clips with a smooth crossfade, like an edit
+    const id = window.setInterval(() => {
+      i = (i + 1) % Math.min(ordered.length, 3)
+      const next = actions[ordered[i]]!
+      next.reset().play()
+      current.crossFadeTo(next, 1.2, true)
+      current = next
+    }, 9000)
+    return () => {
+      window.clearInterval(id)
+      current.fadeOut(0.8)
+    }
+  }, [actions, names, mixer, preferClips, timeScale, reduced])
 
   return (
     <group ref={group}>

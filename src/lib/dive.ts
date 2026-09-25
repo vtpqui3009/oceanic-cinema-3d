@@ -23,6 +23,18 @@ export const dive = {
   depth: 0,
 }
 
+/**
+ * Live world position of each stage's subject (school centroid, jellyfish…),
+ * written by the creatures; the camera eases its aim towards it while holding
+ * on that stage, like an operator keeping the subject framed.
+ */
+export const subjects: (THREE.Vector3 | null)[] = [null, null, null, null]
+
+/** 1 while the camera is holding on stage i's hero shot, easing to 0 around it. */
+export function holdWeight(i: number, p: number, width = 0.08) {
+  return 1 - smoothstep(width * 0.4, width, Math.abs(p - STAGE_P[i]))
+}
+
 /** Scroll proxy written by GSAP ScrollTrigger (scrubbed). */
 export const scrollProxy = { p: 0 }
 

@@ -3,6 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { Noise3D, createRng, lerp, profile, smoothstep } from '../../lib/noise'
 import { boneChain, skinAlongChain, taperedTube } from '../../lib/geometry'
 import { bakeChromatophores } from '../../lib/textures'
+import { deform } from '../../lib/deform'
 
 /**
  * Procedural Dana octopus squid (Taningia danae).
@@ -22,6 +23,8 @@ export interface SquidRig {
   arms: THREE.Bone[][]
   fins: THREE.Mesh[]
   finMaterial: THREE.MeshPhysicalMaterial
+  /** uTime drives the fin wave; uFinAmp its height. */
+  finUniforms: { uTime: THREE.IUniform<number>; uFinAmp: THREE.IUniform<number> }
   /** Emitting photophores (light anchors live at their centres). */
   photophores: { anchor: THREE.Group; material: THREE.MeshPhysicalMaterial }[]
   dispose: () => void
@@ -288,6 +291,19 @@ export function buildSquid({ quality }: { quality: 'high' | 'low' }): SquidRig {
     }),
   )
   const fins: THREE.Mesh[] = []
+  // Taningia swims mostly with its fins: a travelling wave rolls from the
+  // front edge to the back, strongest at the outer rim (shadows follow it too)
+  const finUniforms = { uTime: { value: 0 }, uFinAmp: { value: 0.14 } }
+  const finWave = {
+    key: 'squid-fin',
+    uniforms: finUniforms,
+    head: 'uniform float uTime;\nuniform float uFinAmp;',
+    body: /* glsl */ `
+      float rim = pow(uv.y, 1.3);
+      float wave = sin(uTime * 2.3 - uv.x * 7.5);
+      transformed.y += rim * uFinAmp * wave;
+      transformed.z += rim * uFinAmp * 0.25 * cos(uTime * 2.3 - uv.x * 7.5);`,
+  }
   for (const side of [1, -1]) {
     const U = hi ? 40 : 20, W = hi ? 14 : 8
     const fp: number[] = [], fuv: number[] = [], fi: number[] = []
@@ -319,6 +335,7 @@ export function buildSquid({ quality }: { quality: 'high' | 'low' }): SquidRig {
     fin.receiveShadow = true
     fin.userData.side = side
     mantle[0].add(fin)
+    deform(fin, finMaterial, finWave)
     fins.push(fin)
   }
 
@@ -371,6 +388,7 @@ export function buildSquid({ quality }: { quality: 'high' | 'low' }): SquidRig {
     arms,
     fins,
     finMaterial,
+    finUniforms,
     photophores,
     dispose: () => disposables.forEach((d) => d.dispose()),
   }

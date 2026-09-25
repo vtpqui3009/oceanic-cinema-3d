@@ -22,6 +22,12 @@ export interface JellyRig {
   tentacles: THREE.Bone[][]
   arms: THREE.Bone[][]
   lightAnchor: THREE.Group
+  /** Stomach + gonads, squeezed a little on each stroke. */
+  organs: THREE.Group
+  /** uPulse (0 relaxed → 1 contracted), uAlarm (0…1 display), uTime. */
+  uniforms: { uPulse: THREE.IUniform<number>; uAlarm: THREE.IUniform<number>; uTime: THREE.IUniform<number> }
+  /** Rest position and margin angle of each tentacle root. */
+  tentacleRoots: { rest: THREE.Vector3; theta: number }[]
   dispose: () => void
 }
 
@@ -135,6 +141,34 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
       envMapIntensity: 1.2,
     }),
   )
+  // swimming stroke + "burglar alarm" pinwheel display, both in the shader
+  const uniforms = { uPulse: { value: 0 }, uAlarm: { value: 0 }, uTime: { value: 0 } }
+  bellMaterial.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, uniforms)
+    shader.vertexShader = shader.vertexShader
+      .replace('#include <common>', '#include <common>\nuniform float uPulse;')
+      .replace(
+        '#include <begin_vertex>',
+        /* glsl */ `#include <begin_vertex>
+        // 0 at the apex (outside and inside), 1 at the margin
+        float marginW = smoothstep(0.2, 1.0, 1.0 - abs(uv.y * 2.0 - 1.0));
+        transformed.xz *= 1.0 - uPulse * 0.2 * marginW;
+        transformed.y += uPulse * (0.07 * (1.0 - marginW) - 0.035 * marginW);`,
+      )
+    shader.fragmentShader = shader.fragmentShader
+      .replace('#include <common>', '#include <common>\nuniform float uAlarm;\nuniform float uTime;')
+      .replace(
+        '#include <emissivemap_fragment>',
+        /* glsl */ `#include <emissivemap_fragment>
+        #ifdef USE_EMISSIVEMAP
+          // spiralling sweeps chase each other round the crown
+          float sweep = pow(0.5 + 0.5 * sin((vEmissiveMapUv.x * 4.0 + vEmissiveMapUv.y * 1.5 - uTime * 0.9) * 6.2831), 10.0);
+          totalEmissiveRadiance *= mix(1.0, 0.15 + sweep * 4.0, uAlarm);
+        #endif`,
+      )
+  }
+  bellMaterial.customProgramCacheKey = () => 'jelly-bell'
+
   const bell = new THREE.Mesh(bellGeo, bellMaterial)
   bell.name = 'bell'
   bell.castShadow = false // the light lives inside it
@@ -160,9 +194,11 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
       hi ? 48 : 24,
     ),
   )
+  const organs = new THREE.Group()
+  root.add(organs)
   const stomach = new THREE.Mesh(stomachGeo, gut)
   stomach.castShadow = true
-  root.add(stomach)
+  organs.add(stomach)
   const lobeGeo = track(new THREE.SphereGeometry(0.075, 20, 14))
   for (let k = 0; k < 8; k++) {
     const a = ((k + 0.5) / 8) * Math.PI * 2
@@ -171,7 +207,7 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
     lobe.scale.set(1.2, 0.7, 0.9)
     lobe.rotation.y = -a
     lobe.castShadow = true
-    root.add(lobe)
+    organs.add(lobe)
   }
 
   // ---- marginal tentacles (bone chains) ---------------------------------
@@ -190,6 +226,7 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
   const BONES = 10
   const LONG_BONES = 18
   const tentacleBones: THREE.Bone[][] = []
+  const tentacleRootInfo: JellyRig['tentacleRoots'] = []
   const tentacleParts: THREE.BufferGeometry[] = []
   const allTentacleBones: THREE.Bone[] = []
   const tentacleRoots = new THREE.Group()
@@ -219,6 +256,7 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
     skinAlongChain(g, allTentacleBones.length, nb)
     tentacleParts.push(g)
     tentacleBones.push(chain)
+    tentacleRootInfo.push({ rest: chain[0].position.clone(), theta: th })
     allTentacleBones.push(...chain)
     tentacleRoots.add(chain[0])
   }
@@ -296,6 +334,9 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
     tentacles: tentacleBones,
     arms: armBones,
     lightAnchor,
+    organs,
+    uniforms,
+    tentacleRoots: tentacleRootInfo,
     dispose: () => disposables.forEach((d) => d.dispose()),
   }
 }

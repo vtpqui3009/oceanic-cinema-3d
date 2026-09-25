@@ -3,7 +3,9 @@ import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import defaultFishUrl from '../../assets/barramundi.glb?url'
-import { createRng } from '../../lib/noise'
+import { DEFAULT_FLOCK, createFlock, stepFlock, type FlockParams } from '../../lib/boids'
+import { deform } from '../../lib/deform'
+import { subjects } from '../../lib/dive'
 import { userModelUrl } from '../../lib/models'
 import { BioLight } from '../../scene/BioLight'
 import { useSceneStore } from '../../state/useSceneStore'
@@ -11,14 +13,15 @@ import { useSceneStore } from '../../state/useSceneStore'
 export const FISH_URL = userModelUrl('fish') ?? defaultFishUrl
 
 interface Props {
-  /** Centre the school circles around (zone-local). */
+  /** Centre the school roams around (zone-local). */
   center?: [number, number, number]
 }
 
 /**
  * The school: one GPU-instanced draw call for every fish. The model's first
- * mesh is normalised to unit length facing +Z; each fish keeps its own
- * offset, size and phase.
+ * mesh is normalised to unit length facing +Z. Every fish runs its own boid
+ * (separation / alignment / cohesion), banks into its turns and beats its
+ * tail at a rate set by its speed, so the school never moves in lockstep.
  */
 export function FishSchool(props: Props) {
   return (
@@ -69,44 +72,84 @@ function School({ center = [0, 0, 0] }: Props) {
     return { geometry, material }
   }, [gltf])
 
-  const fish = useMemo(() => {
-    const rng = createRng(21)
-    return Array.from({ length: count }, () => {
-      // loose lens-shaped school, denser in the middle
-      const u = rng(), a = rng() * Math.PI * 2, b = Math.acos(2 * rng() - 1)
-      const r = Math.cbrt(u)
-      return {
-        off: new THREE.Vector3(Math.sin(b) * Math.cos(a) * 3.2 * r, Math.cos(b) * 1.1 * r, Math.sin(b) * Math.sin(a) * 2.2 * r),
-        scale: 0.32 + rng() * 0.16,
-        phase: rng() * 100,
-        yaw: (rng() - 0.5) * 0.25,
-      }
+  // one tail-beat phase per fish, read by the vertex shader
+  const phaseAttr = useMemo(() => {
+    const a = new THREE.InstancedBufferAttribute(new Float32Array(count), 1)
+    a.setUsage(THREE.DynamicDrawUsage)
+    geometry.setAttribute('aPhase', a)
+    return a
+  }, [geometry, count])
+  useLayoutEffect(() => {
+    deform(mesh.current, material, {
+      key: 'fish-tail',
+      uniforms: {},
+      head: 'attribute float aPhase;',
+      // lateral body wave travelling head → tail, stiff head, loose tail
+      body: /* glsl */ `
+        float tailW = smoothstep(0.3, -0.5, position.z);
+        transformed.x += sin(aPhase + position.z * 7.5) * 0.085 * tailW * tailW;
+        transformed.x += sin(aPhase * 0.5) * 0.012;`,
     })
-  }, [count])
+  }, [material])
 
-  const tmp = useMemo(() => ({ o: new THREE.Object3D(), c: new THREE.Vector3() }), [])
-  const place = (t: number) => {
-    // placeholder cruise: the whole school circles slowly (boids come in step 3)
-    const R = 4.5
-    const ang = t * 0.06
-    tmp.c.set(center[0] + Math.cos(ang) * R * 0.4, center[1] + Math.sin(t * 0.2) * 0.3, center[2] + Math.sin(ang) * R * 0.4)
-    const heading = -ang
-    fish.forEach((f, i) => {
-      const o = tmp.o
-      o.position.copy(f.off).applyAxisAngle(THREE.Object3D.DEFAULT_UP, heading).add(tmp.c)
-      o.position.y += Math.sin(t * 0.7 + f.phase) * 0.06
-      o.rotation.set(0, heading + f.yaw + Math.sin(t * 0.5 + f.phase) * 0.08, 0)
-      o.scale.setScalar(f.scale)
-      o.updateMatrix()
-      mesh.current.setMatrixAt(i, o.matrix)
+  const c = useMemo(() => new THREE.Vector3(...center), [center])
+  const flock = useMemo(() => createFlock(count, c), [count, c])
+  const params = useMemo<FlockParams>(() => ({ ...DEFAULT_FLOCK, center: c }), [c])
+  const tmp = useMemo(
+    () => ({
+      goal: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), roll: new THREE.Quaternion(),
+      s: new THREE.Vector3(), dir: new THREE.Vector3(), prev: new THREE.Vector3(), mean: new THREE.Vector3(),
+      zero: new THREE.Vector3(), z: new THREE.Vector3(0, 0, 1), up: new THREE.Vector3(0, 1, 0),
+    }),
+    [],
+  )
+
+  const writeInstances = () => {
+    tmp.mean.set(0, 0, 0)
+    flock.forEach((b, i) => {
+      tmp.dir.copy(b.vel).normalize()
+      tmp.m.lookAt(tmp.dir, tmp.zero, tmp.up) // +Z along the swim direction
+      tmp.q.setFromRotationMatrix(tmp.m)
+      tmp.roll.setFromAxisAngle(tmp.z, b.bank)
+      tmp.q.multiply(tmp.roll)
+      tmp.s.setScalar(b.size)
+      tmp.m.compose(b.pos, tmp.q, tmp.s)
+      mesh.current.setMatrixAt(i, tmp.m)
+      phaseAttr.array[i] = b.phase
+      tmp.mean.add(b.pos)
     })
     mesh.current.instanceMatrix.needsUpdate = true
+    phaseAttr.needsUpdate = true
     mesh.current.computeBoundingSphere()
-    shimmer.current.position.copy(tmp.c)
+    shimmer.current.position.copy(tmp.mean.divideScalar(flock.length))
+    subjects[0] ??= new THREE.Vector3()
+    shimmer.current.getWorldPosition(subjects[0])
   }
 
-  useLayoutEffect(() => place(0))
-  useFrame(({ clock }) => place(reduced ? 0 : clock.elapsedTime))
+  useLayoutEffect(() => {
+    // settle into a natural formation before the first frame is seen
+    tmp.goal.copy(c)
+    for (let i = 0; i < 240; i++) stepFlock(flock, tmp.goal, params, 1 / 30)
+    writeInstances()
+  }, [flock])
+
+  useFrame(({ clock }, delta) => {
+    if (reduced) return // reduced motion: the school holds its formation
+    const t = clock.elapsedTime
+    // the school's wandering "intent"
+    tmp.goal.set(c.x + Math.sin(t * 0.11) * 2.4, c.y + Math.sin(t * 0.23) * 0.9, c.z + Math.sin(t * 0.17 + 1) * 1.8)
+    const dt = Math.min(delta, 1 / 20)
+    flock.forEach((b) => b.prev.copy(b.vel))
+    stepFlock(flock, tmp.goal, params, dt)
+    flock.forEach((b) => {
+      // bank into turns: roll ∝ signed yaw rate
+      const turn = Math.atan2(b.prev.x * b.vel.z - b.prev.z * b.vel.x, b.prev.x * b.vel.x + b.prev.z * b.vel.z) / Math.max(dt, 1e-3)
+      b.bank = THREE.MathUtils.lerp(b.bank, THREE.MathUtils.clamp(-turn * 0.25, -0.6, 0.6), 0.08)
+      // faster fish beat their tails faster
+      b.phase += dt * (7 + b.vel.length() * 5)
+    })
+    writeInstances()
+  })
 
   return (
     <>

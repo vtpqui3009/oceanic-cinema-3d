@@ -3,8 +3,8 @@
 Một "thước phim tài liệu" 3D về sinh vật biển sâu phát quang, dựng bằng
 Vite + React + TypeScript + React Three Fiber.
 
-> **Trạng thái: Bước 2 / 5** — đủ 4 cảnh, cuộn trang để "lặn" từ mặt nước
-> xuống vực thẳm; camera bay theo đường định sẵn, có tracking shot bám theo mực.
+> **Trạng thái: Bước 3 / 5** — đủ 4 cảnh với camera lặn theo scroll, và mọi
+> sinh vật đều có animation procedural riêng (boids, bộ xương, shader).
 
 | I · Nước cạn | II · Chạng vạng | III · Nửa tối | IV · Vực thẳm |
 | --- | --- | --- | --- |
@@ -59,6 +59,22 @@ Một giá trị cuộn `p ∈ [0, 1]` (GSAP ScrollTrigger, `scrub`) điều khi
   camera và shadow camera đều bỏ qua.
 - `prefers-reduced-motion`: không bay camera — mỗi cảnh là một cú cắt tĩnh
   vào khung hình chính; sinh vật giữ tư thế tĩnh, đèn thở rất chậm.
+
+## Animation (procedural)
+
+| Sinh vật | Chuyển động | Kỹ thuật |
+| --- | --- | --- |
+| Đàn cá chẽm | Mỗi con là một boid: tách đàn, căn hướng, tụ đàn + mục tiêu lang thang của cả đàn; giữ độ sâu, giới hạn góc ngóc ~20°, nghiêng mình khi rẽ, tốc độ và độ nhanh nhạy riêng | `lib/boids.ts` (Reynolds) + đuôi quẫy bằng vertex shader, tần số theo tốc độ từng con (`aPhase` instanced) |
+| Sứa vương miện | Nhịp bơi: co nhanh – giãn chậm (3,2 s), lực đẩy lên rồi chìm dần; xúc tu là lò xo–giảm chấn trên từng đốt xương đuổi theo sóng sin chạy dọc xúc tu, loe ra khi co, xoè khi chìm; tay miệng uốn chậm; màn "chuông báo động" xoay vòng mỗi ~15 s | Vertex shader co chuông (mép co mạnh, đỉnh nhô) + chuỗi xương skinned + shader emissive xoáy |
+| Mực đèn Dana | Vây quạt sóng chạy từ trước ra sau; áo mực co theo nhịp phụt nước; 8 tay lò xo–giảm chấn, khép khi phụt, xoè khi hồi, vung ngược chiều khi rẽ; thân nghiêng vào khúc cua; 2 cơ quan phát sáng chớp theo chuỗi | Vertex shader cho vây (kèm depth/distance material để bóng khớp) + bone scale/rotation |
+| Cá câu | Đuôi uốn sóng qua 5 đốt sống, vây ngực quạt, cần câu đung đưa 2 khớp; mỗi 16 s: giật mồi → há miệng, lùi lại → đớp, lao tới | Keyframe track `[t, há, lao, quẫy]` nội suy lerp + easing (`lib/keyframes.ts`) |
+| Model `.glb` người dùng | Phát clip khớp `swim/idle/move`, luân phiên các clip bằng `crossFadeTo` | drei `useAnimations` |
+
+Camera giữ chủ thể trong khung: ở cảnh cá và cảnh sứa, điểm nhìn nhẹ nhàng
+bám theo trọng tâm đàn cá / chuông sứa trong lúc dừng ở cảnh đó.
+
+`prefers-reduced-motion`: đàn cá giữ đội hình tĩnh (không chạy boids), sứa
+và mực đứng yên ở tư thế đẹp, cá câu không đớp mồi, đèn chỉ thở rất chậm.
 
 ## Cấu trúc
 

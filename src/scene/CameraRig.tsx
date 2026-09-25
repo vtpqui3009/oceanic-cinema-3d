@@ -4,7 +4,7 @@ import * as THREE from 'three'
 import gsap from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
 import {
-  SQUID_PATH, ZONE_Y, depthFromP, dive, scrollProxy, squidProgress, stageFromP, trackingWeight,
+  SQUID_PATH, ZONE_Y, depthFromP, dive, holdWeight, scrollProxy, squidProgress, stageFromP, subjects, trackingWeight,
 } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
 
@@ -141,6 +141,15 @@ export function CameraRig() {
         sampleTracking(p, tmp.tPos, tmp.tTgt)
         tmp.pos.lerp(tmp.tPos, w)
         tmp.tgt.lerp(tmp.tTgt, w)
+      }
+      // keep living subjects framed: aim (and drift a little) towards them
+      for (const i of [0, 1]) {
+        const s = subjects[i]
+        const h = s ? holdWeight(i, p) : 0
+        if (h <= 0 || !s) continue
+        tmp.tTgt.copy(s).sub(tmp.tgt)
+        tmp.tgt.addScaledVector(tmp.tTgt, h * 0.75)
+        tmp.pos.addScaledVector(tmp.tTgt, h * 0.35)
       }
       // slow, non-repeating drift — a diver's breathing, not a tripod
       const t = clock.elapsedTime
