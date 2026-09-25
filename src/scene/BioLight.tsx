@@ -3,6 +3,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { bioLights, bioPulse, type BioLightEntry } from '../lib/bioluminescence'
 import { useSceneStore } from '../state/useSceneStore'
+import { currentZoneWeight, pauseShadow, useZoneIndex } from './Zone'
 
 interface Props {
   color: THREE.ColorRepresentation
@@ -22,6 +23,7 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
   const light = useRef<THREE.PointLight>(null!)
   const quality = useSceneStore((s) => s.quality)
   const reduced = useSceneStore((s) => s.reducedMotion)
+  const zone = useZoneIndex()
   const entry = useMemo<BioLightEntry>(
     () => ({ object: new THREE.Object3D(), color: new THREE.Color(color), strength: 1 }),
     [color],
@@ -29,6 +31,7 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
 
   useEffect(() => {
     entry.object = light.current
+    light.current.userData.selfManaged = true
     bioLights.add(entry)
     return () => void bioLights.delete(entry)
   }, [entry])
@@ -37,8 +40,10 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
     // reduced motion: a much slower, shallower breath
     const t = reduced ? clock.elapsedTime * 0.25 : clock.elapsedTime
     const p = reduced ? 0.95 + (bioPulse(t, seed) - 0.9) * 0.3 : bioPulse(t, seed)
-    light.current.intensity = intensity * p
-    entry.strength = p
+    const w = currentZoneWeight(zone)
+    light.current.intensity = intensity * p * w
+    if (castShadow) pauseShadow(light.current.shadow, w > 0)
+    entry.strength = p * w
     onPulse?.(p)
   })
 

@@ -1,13 +1,14 @@
 import { Experience } from './scene/Experience'
 import { Loader } from './ui/Loader'
-import { Hud } from './ui/Hud'
+import { DiveTrack, Overlay } from './ui/Overlay'
 
 export default function App() {
   return (
-    <main className="app">
+    <>
       <Experience />
-      <Hud />
+      <Overlay />
+      <DiveTrack />
       <Loader />
-    </main>
+    </>
   )
 }

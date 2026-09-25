@@ -42,4 +42,8 @@ export default defineConfig({
   base: './',
   plugins: [react(), modelManifest()],
   server: { port: 5173 },
+  assetsInclude: ['**/*.glb'],
+  // small bundled assets (the default fish model) are inlined so the build
+  // also works as a single self-contained file
+  build: { assetsInlineLimit: 400_000, chunkSizeWarningLimit: 2000 },
 })

@@ -2,14 +2,15 @@ import * as THREE from 'three'
 
 /**
  * Tube whose radius follows `radius(t)` along any curve — used for teeth,
- * lure stalks, fin rays and (later) jellyfish tentacles. A radius of 0 at the
- * end produces a clean point.
+ * lure stalks, tentacles and frilly oral arms (radius may vary around the
+ * tube too). A radius of 0 at the end produces a clean point.
  */
 export function taperedTube(
   curve: THREE.Curve<THREE.Vector3>,
   tubularSegments: number,
   radialSegments: number,
-  radius: (t: number) => number,
+  /** Radius at arc position t ∈ [0,1] and angle a around the tube. */
+  radius: (t: number, a: number) => number,
 ) {
   const frames = curve.computeFrenetFrames(tubularSegments, false)
   const positions: number[] = []
@@ -23,9 +24,9 @@ export function taperedTube(
     const t = i / tubularSegments
     curve.getPointAt(t, p)
     const N = frames.normals[i], B = frames.binormals[i]
-    const r = radius(t)
     for (let j = 0; j <= radialSegments; j++) {
       const a = (j / radialSegments) * Math.PI * 2
+      const r = radius(t, a)
       const s = Math.sin(a), c = -Math.cos(a)
       nrm.set(c * N.x + s * B.x, c * N.y + s * B.y, c * N.z + s * B.z).normalize()
       positions.push(p.x + r * nrm.x, p.y + r * nrm.y, p.z + r * nrm.z)
@@ -99,4 +100,47 @@ export function fanFin(o: FanFinOptions) {
   g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2))
   g.computeVertexNormals()
   return g
+}
+
+/**
+ * Skin a set of bone chains onto tube geometries built along the same
+ * chains: each vertex is weighted to the two nearest bones by its arc
+ * position (the tube's uv.y).
+ */
+export function skinAlongChain(geo: THREE.BufferGeometry, firstBone: number, bones: number, tOf?: (v: number) => number) {
+  const uv = geo.attributes.uv as THREE.BufferAttribute
+  const n = uv.count
+  const idx = new Uint16Array(n * 4)
+  const w = new Float32Array(n * 4)
+  for (let i = 0; i < n; i++) {
+    const t = tOf ? tOf(i) : uv.getY(i)
+    const f = Math.min(Math.max(t, 0), 1) * (bones - 1)
+    const i0 = Math.min(Math.floor(f), bones - 2)
+    const k = f - i0
+    idx[i * 4] = firstBone + i0
+    idx[i * 4 + 1] = firstBone + i0 + 1
+    w[i * 4] = 1 - k
+    w[i * 4 + 1] = k
+  }
+  geo.setAttribute('skinIndex', new THREE.Uint16BufferAttribute(idx, 4))
+  geo.setAttribute('skinWeight', new THREE.Float32BufferAttribute(w, 4))
+  return geo
+}
+
+/**
+ * Build a bone chain through `points` (in the parent's space). Returns the
+ * bones; bones[0] sits at points[0] and must be added to a parent.
+ */
+export function boneChain(points: THREE.Vector3[], name: string) {
+  const bones = points.map((_, i) => {
+    const b = new THREE.Bone()
+    b.name = `${name}${i}`
+    return b
+  })
+  bones[0].position.copy(points[0])
+  for (let i = 1; i < bones.length; i++) {
+    bones[i].position.subVectors(points[i], points[i - 1])
+    bones[i - 1].add(bones[i])
+  }
+  return bones
 }

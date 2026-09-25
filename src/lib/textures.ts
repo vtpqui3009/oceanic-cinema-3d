@@ -179,3 +179,79 @@ export function bakeSediment(seed = 21, size = 512) {
   for (const t of [map, normalMap]) t.wrapT = THREE.RepeatWrapping
   return { map, normalMap }
 }
+
+/**
+ * Crown-jelly light display: radial canals running to each lappet, a ring
+ * of photocytes around the coronal groove and a brighter marginal band.
+ * v ∈ [0, 0.5] is the outer bell (apex → margin), [0.5, 1] the underside.
+ */
+export function bakeJellyEmissive(lappets: number, seed = 13, size = 512) {
+  const n = new Noise3D(seed)
+  const canvas = toCanvas(size, (i, px, o) => {
+    const u = (i % size) / size, v = ((i / size) | 0) / size
+    const a = u * Math.PI * 2
+    const x = Math.cos(a) * 1.3, y = Math.sin(a) * 1.3
+    let e = 0
+    if (v < 0.5) {
+      const vo = v / 0.5
+      const canal = Math.pow(Math.abs(Math.cos(u * Math.PI * lappets)), 90) * smoothstep(0.15, 0.55, vo)
+      const branch = Math.pow(1 - Math.abs(n.noise(x * 6, y * 6, vo * 8)), 30) * smoothstep(0.3, 0.9, vo) * 0.5
+      // photocyte ring at the coronal groove, beaded
+      const ring = Math.exp(-Math.pow((vo - 0.5) / 0.03, 2))
+      const beads = Math.pow(Math.max(0, Math.cos(u * Math.PI * 2 * lappets * 3)), 6)
+      const margin = smoothstep(0.86, 0.98, vo) * (0.6 + 0.4 * beads)
+      e = canal * 0.6 + branch + ring * (0.35 + 0.9 * beads) + margin
+    } else {
+      const vi = (v - 0.5) / 0.5
+      // coronal muscle rings glowing faintly on the underside
+      e = (0.25 + 0.2 * Math.sin(vi * 60)) * (1 - smoothstep(0, 0.35, vi))
+    }
+    e = clamp(e)
+    px[o] = e * 90
+    px[o + 1] = e * 190
+    px[o + 2] = e * 255
+    px[o + 3] = 255
+  })
+  const tex = finish(canvas, true)
+  tex.wrapT = THREE.ClampToEdgeWrapping
+  return tex
+}
+
+/**
+ * Squid skin: burgundy ground with expanded/contracted chromatophores
+ * (dark and orange dots at several sizes), iridophore sheen streaks and
+ * countershading (dark back, paler belly). u = around (0.25 = dorsal).
+ */
+export function bakeChromatophores(opts: { seed?: number; size?: number; aspect?: number }) {
+  const size = opts.size ?? 1024
+  const n = new Noise3D(opts.seed ?? 17)
+  const aspect = opts.aspect ?? 3
+  const spots = cylinderSample(size, aspect, (x, y, z) => n.noise(x * 60, y * 60, z * 60))
+  const spotsBig = cylinderSample(size, aspect, (x, y, z) => n.noise(x * 22 + 5, y * 22, z * 22))
+  const tone = cylinderSample(size, aspect, (x, y, z) => n.fbm(x * 4, y * 4, z * 4, 4))
+  const dark = new THREE.Color('#2a0409'), base = new THREE.Color('#7c1a26'), orange = new THREE.Color('#d0543a'), pale = new THREE.Color('#e4a39a')
+  const c = new THREE.Color()
+  const albedo = toCanvas(size, (i, px, o) => {
+    const u = (i % size) / size
+    const belly = smoothstep(0.1, 0.9, (-Math.sin(u * Math.PI * 2) + 1) / 2)
+    c.copy(base).lerp(dark, 0.35 - tone[i] * 0.4).lerp(pale, belly * 0.28)
+    c.lerp(dark, smoothstep(0.32, 0.45, spots[i]) * 0.85)
+    c.lerp(orange, smoothstep(0.38, 0.5, spotsBig[i]) * 0.7)
+    px[o] = c.r * 255
+    px[o + 1] = c.g * 255
+    px[o + 2] = c.b * 255
+    px[o + 3] = 255
+  })
+  const height = new Float32Array(size * size)
+  for (let i = 0; i < height.length; i++) height[i] = smoothstep(0.3, 0.5, spots[i]) * 0.6 + smoothstep(0.35, 0.5, spotsBig[i]) * 0.8 + tone[i] * 0.3
+  const rough = toCanvas(size, (i, px, o) => {
+    const r = clamp(0.3 + tone[i] * 0.2 + height[i] * 0.1) * 255
+    px[o] = px[o + 1] = px[o + 2] = r
+    px[o + 3] = 255
+  })
+  return {
+    map: finish(albedo, true),
+    normalMap: finish(heightToNormal(height, size, 1.2), false),
+    roughnessMap: finish(rough, false),
+  }
+}
