@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { Canvas } from '@react-three/fiber'
+import { PerformanceMonitor } from '@react-three/drei'
 import * as THREE from 'three'
 import { Atmosphere } from './Atmosphere'
 import { CameraRig } from './CameraRig'
@@ -13,14 +15,21 @@ import { useSceneStore } from '../state/useSceneStore'
 
 export function Experience() {
   const quality = useSceneStore((s) => s.quality)
+  const setDegraded = useSceneStore((s) => s.setDegraded)
+  // resolution follows the measured frame rate between these bounds
+  const maxDpr = Math.min(typeof window === 'undefined' ? 1 : window.devicePixelRatio, quality === 'high' ? 2 : 1.5)
+  const minDpr = quality === 'high' ? 1 : 0.7
+  const [dpr, setDpr] = useState(Math.min(maxDpr, quality === 'high' ? 1.5 : 1))
   return (
     <Canvas
       className="stage"
+      // purely cinematic: let every touch/scroll gesture reach the page
+      style={{ position: 'fixed', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}
       // PCF soft shadows. three r182+ removed PCFSoftShadowMap (it now logs a
       // warning and falls back); PCFShadowMap gained Vogel-disk soft filtering
       // driven by `shadow.radius`, which is the soft path we use everywhere.
       shadows={{ enabled: true, type: THREE.PCFShadowMap }}
-      dpr={quality === 'high' ? [1, 2] : [1, 1.5]}
+      dpr={dpr}
       gl={{ antialias: true, powerPreference: 'high-performance' }}
       camera={{ position: [0, 6.5, 13], fov: 38, near: 0.05, far: 140 }}
       // tone mapping + grading happen in <PostFX/> (FilmGradeEffect)
@@ -28,6 +37,15 @@ export function Experience() {
         if (import.meta.env.DEV) Object.assign(window, { __three: { gl, scene, camera } })
       }}
     >
+      <PerformanceMonitor
+        bounds={() => [45, 58]}
+        flipflops={4}
+        onChange={({ factor }) => setDpr(Math.round((minDpr + (maxDpr - minDpr) * factor) * 10) / 10)}
+        onFallback={() => {
+          setDpr(minDpr)
+          setDegraded(true)
+        }}
+      />
       <Atmosphere />
       <DeepEnvironment />
       <CameraRig />

@@ -25,12 +25,8 @@ body {
   overscroll-behavior: none;
 }
 
-/* the 3D stage is fixed; the page scrolls a tall, empty track over it */
+/* the 3D stage is fixed (inline styles); the page scrolls a tall, empty track over it */
 .stage {
-  position: fixed !important;
-  inset: 0;
-  width: 100% !important;
-  height: 100% !important;
   z-index: 0;
 }
 .stage canvas {
@@ -155,6 +151,10 @@ body {
   line-height: 1.65;
   color: var(--ink-dim);
   font-weight: 300;
+}
+
+.nowrap {
+  white-space: nowrap;
 }
 
 /* ---- depth gauge ------------------------------------------------------- */

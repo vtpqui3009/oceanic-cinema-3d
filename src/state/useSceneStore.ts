@@ -22,6 +22,9 @@ interface SceneState {
   intro: boolean
   quality: Quality
   reducedMotion: boolean
+  /** Set when the GPU can't hold frame rate even at minimum resolution. */
+  degraded: boolean
+  setDegraded: (v: boolean) => void
   setStage: (stage: number) => void
   setIntro: (intro: boolean) => void
 }
@@ -31,6 +34,8 @@ export const useSceneStore = create<SceneState>((set) => ({
   intro: true,
   quality: detectQuality(),
   reducedMotion: media('(prefers-reduced-motion: reduce)') || param('motion') === 'reduced',
+  degraded: false,
+  setDegraded: (degraded) => set({ degraded }),
   setStage: (stage) => set({ stage }),
   setIntro: (intro) => set({ intro }),
 }))

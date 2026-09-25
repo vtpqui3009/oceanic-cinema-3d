@@ -13,11 +13,11 @@ export const liveAtmosphere: Atm = sampleAtmosphere(0, {
 
 /**
  * Water column: fog colour/density, background, the ambient "sky" light and
- * reflection strength all follow depth — sunlight fades out and cools from
+ * reflection strength all follow depth (exposure is applied in PostFX) — sunlight fades out and cools from
  * turquoise to ink as the camera dives.
  */
 export function Atmosphere() {
-  const { scene, gl } = useThree()
+  const scene = useThree((s) => s.scene)
   const hemi = useRef<THREE.HemisphereLight>(null!)
   const { fog, background } = useMemo(() => {
     const fog = new THREE.FogExp2(ATMOSPHERES[0].fog.getHex(), ATMOSPHERES[0].density)
@@ -35,7 +35,6 @@ export function Atmosphere() {
     hemi.current.groundColor.copy(a.ground)
     hemi.current.intensity = a.ambient
     scene.environmentIntensity = a.env
-    gl.toneMappingExposure = a.exposure
   })
 
   return <hemisphereLight ref={hemi} />

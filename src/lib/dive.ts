@@ -132,7 +132,7 @@ export const CHAPTERS: Chapter[] = [
   {
     numeral: 'I',
     zone: 'Vùng nước cạn',
-    range: '0 – 50 m',
+    range: '0\u00a0–\u00a050\u00a0m',
     creature: 'Đàn cá chẽm non',
     latin: 'Lates calcarifer',
     line: 'Ánh mặt trời xuyên qua mặt nước thành từng cột sáng. Cả đàn đổi hướng như một cơ thể duy nhất.',
@@ -140,7 +140,7 @@ export const CHAPTERS: Chapter[] = [
   {
     numeral: 'II',
     zone: 'Vùng chạng vạng',
-    range: '50 – 500 m',
+    range: '50\u00a0–\u00a0500\u00a0m',
     creature: 'Sứa vương miện',
     latin: 'Atolla wyvillei',
     line: 'Khi bị tấn công, nó bật một vòng sáng xanh xoay tròn để gọi kẻ săn mồi lớn hơn đến. Người ta gọi đó là "chuông báo động".',
@@ -148,7 +148,7 @@ export const CHAPTERS: Chapter[] = [
   {
     numeral: 'III',
     zone: 'Vùng nửa tối',
-    range: '500 – 1 000 m',
+    range: '500\u00a0–\u00a01\u00a0000\u00a0m',
     creature: 'Mực đèn Dana',
     latin: 'Taningia danae',
     line: 'Một trong những loài mực phát quang lớn nhất. Hai cơ quan phát sáng ở đầu tay loé lên như đèn flash giữa bóng tối.',
@@ -156,7 +156,7 @@ export const CHAPTERS: Chapter[] = [
   {
     numeral: 'IV',
     zone: 'Vực thẳm',
-    range: '1 000 m +',
+    range: '1\u00a0000\u00a0m\u00a0+',
     creature: 'Cá câu vực thẳm',
     latin: 'Melanocetus johnsonii',
     line: 'Ở độ sâu này, ánh sáng duy nhất là chiếc đèn sinh học nó tự mang theo.',

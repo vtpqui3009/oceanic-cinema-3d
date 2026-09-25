@@ -127,6 +127,9 @@ export function buildJellyfish({ quality }: { quality: 'high' | 'low' }): JellyR
       transmission: hi ? 1 : 0,
       transparent: !hi,
       opacity: hi ? 1 : 0.5,
+      // without transmission the shell is alpha-blended: skip depth writes so
+      // inner and outer surfaces blend instead of cutting each other out
+      depthWrite: hi,
       thickness: 0.55,
       ior: 1.34,
       attenuationColor: new THREE.Color('#ff4f73'),

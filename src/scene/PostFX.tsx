@@ -74,7 +74,8 @@ class FilmGradeEffect extends Effect {
 export function PostFX() {
   const quality = useSceneStore((s) => s.quality)
   const camera = useThree((s) => s.camera)
-  const hi = quality === 'high'
+  const degraded = useSceneStore((s) => s.degraded)
+  const hi = quality === 'high' && !degraded
 
   const grade = useMemo(() => new FilmGradeEffect(), [])
   const focus = useMemo(() => new THREE.Vector3(), [])

@@ -3,12 +3,14 @@
 Một "thước phim tài liệu" 3D về sinh vật biển sâu phát quang, dựng bằng
 Vite + React + TypeScript + React Three Fiber.
 
-> **Trạng thái: Bước 3 / 5** — đủ 4 cảnh với camera lặn theo scroll, và mọi
-> sinh vật đều có animation procedural riêng (boids, bộ xương, shader).
+> **Trạng thái: hoàn thành (5 / 5)** — 4 cảnh, camera lặn theo scroll, animation
+> procedural cho mọi sinh vật, hậu kỳ điện ảnh, tối ưu hiệu năng và di động.
 
 | I · Nước cạn | II · Chạng vạng | III · Nửa tối | IV · Vực thẳm |
 | --- | --- | --- | --- |
-| ![](docs/step2-1-shallows.png) | ![](docs/step2-2-twilight.png) | ![](docs/step2-3-midnight.png) | ![](docs/step2-4-abyss.png) |
+| ![](docs/step4-shallows.png) | ![](docs/step4-twilight.png) | ![](docs/step4-midnight.png) | ![](docs/step4-abyss.png) |
+
+![Cú đẩy máy cuối cùng: cá câu và đèn mồi](docs/final-abyss-closeup.png)
 
 ## Chạy
 
@@ -30,8 +32,8 @@ Tham số URL hữu ích khi duyệt:
 | ---------------------- | ------------------------------------------------- |
 | Render                 | three r186, @react-three/fiber 9                  |
 | Helper                 | @react-three/drei 10 (Environment, ContactShadows, useGLTF, useAnimations, useProgress…) |
-| Hậu kỳ (bước 4)        | @react-three/postprocessing 3 + postprocessing 6  |
-| Camera theo scroll (bước 2) | GSAP 3 + ScrollTrigger                       |
+| Hậu kỳ                 | @react-three/postprocessing 3 + postprocessing 6  |
+| Camera theo scroll     | GSAP 3 + ScrollTrigger                       |
 | State                  | Zustand 5                                         |
 
 ## Cuộc lặn
@@ -76,6 +78,51 @@ bám theo trọng tâm đàn cá / chuông sứa trong lúc dừng ở cảnh đ
 `prefers-reduced-motion`: đàn cá giữ đội hình tĩnh (không chạy boids), sứa
 và mực đứng yên ở tư thế đẹp, cá câu không đớp mồi, đèn chỉ thở rất chậm.
 
+## Hậu kỳ (post-processing)
+
+`scene/PostFX.tsx` — `EffectComposer` render HDR tuyến tính (tone mapping của
+renderer tắt), theo thứ tự:
+
+1. **DepthOfField** — tự lấy nét vào sinh vật của cảnh hiện tại (trọng tâm
+   đàn cá, chuông sứa, thân mực, mặt cá câu); vùng nét tính theo đơn vị thế
+   giới đủ rộng để cả con vật sắc nét, nước phía sau tan thành bokeh. Chuyển
+   nét mượt, cắt thẳng khi đổi vùng.
+2. **Bloom** (mipmap blur) — ngưỡng cao để chỉ những điểm thực sự quá sáng
+   (bầu mồi, cơ quan phát sáng, vành chuông sứa, mặt nước) "nở" ra; cường độ
+   tăng theo độ sâu.
+3. **FilmGradeEffect** (tự viết) — exposure theo độ sâu, tone mapping ACES,
+   split-toning bóng tối xanh lục/đậm – vùng sáng xanh ngọc, contrast và
+   độ bão hoà giảm dần, mức đen bị nén về gần đen ở vực thẳm.
+4. **ChromaticAberration** rất nhẹ (tăng dần ra mép), **Vignette** đậm dần theo
+   độ sâu, **Noise** (film grain) mức thấp.
+
+## Hiệu năng & responsive
+
+- **Tự phát hiện cấu hình:** màn hình cảm ứng nhỏ hoặc `deviceMemory ≤ 4` →
+  `quality = low`: ~⅓ hạt tuyết biển, ít cột sáng/đá/cá hơn, shadow map
+  512–1024, tắt đổ bóng đèn rim, tắt `transmission` (vật liệu trong suốt
+  dùng alpha), texture da 512 px, lưới thưa hơn, không DoF, không MSAA.
+- **`PerformanceMonitor`** (drei) đo FPS liên tục: độ phân giải (DPR) trượt
+  giữa min–max theo FPS; nếu vẫn không giữ nổi → tắt DoF và MSAA.
+- **Vùng xa không tốn gì:** mesh chuyển sang layer ẩn (camera + shadow camera
+  bỏ qua), đèn mờ về 0 và dừng cập nhật shadow map; số đèn giữ cố định nên
+  không bao giờ recompile shader giữa chừng. `ContactShadows` chỉ mount ở cảnh
+  đang xem.
+- **Asset:** model cá 12,5 MB → 239 KB (WebP 512 px) và được inline; mọi
+  texture khác bake procedural lúc tải (không có request mạng nào ngoài font).
+  Build một file JS ~1,9 MB (≈675 KB gzip).
+- **Màn hình dọc:** khung hình được thiết kế cho ~16:9; trên màn hẹp camera
+  vừa mở ống kính vừa lùi lại (giữ không gian ngang cho sinh vật) và hạ điểm
+  nhìn để sinh vật nằm ở nửa trên, nhường phần dưới cho thẻ chương. Canvas
+  `pointer-events: none` nên vuốt trên điện thoại luôn cuộn trang.
+- **`prefers-reduced-motion`:** không bay camera (cắt thẳng vào khung hình
+  chính từng cảnh), không boids, sinh vật đứng yên ở tư thế đẹp, đèn thở rất
+  chậm, UI không chuyển động — vẫn đủ ánh sáng, bóng đổ và hậu kỳ.
+
+| Điện thoại · Chạng vạng | Điện thoại · Nửa tối | Điện thoại · Vực thẳm |
+| --- | --- | --- |
+| ![](docs/mobile-twilight.png) | ![](docs/mobile-midnight.png) | ![](docs/mobile-abyss.png) |
+
 ## Cấu trúc
 
 ```
@@ -94,18 +141,24 @@ src/
     bioluminescence.ts         # hàm nhịp sáng sinh học + registry nguồn sáng
     models.ts                  # danh sách sinh vật + tra cứu .glb người dùng
     useProcedural.ts           # build asset procedural trong Suspense + báo tiến độ
+    dive.ts                    # p → độ sâu, vùng, môi trường, đường bơi của mực, chương
+    boids.ts                   # bầy đàn Reynolds cho cá
+    deform.ts                  # biến dạng vertex áp cả cho depth/distance material (bóng khớp)
+    keyframes.ts               # track keyframe nội suy (cú đớp của cá câu)
+    caustics.ts                # vân sáng caustic trên cát (chỉ dưới nắng, mất trong bóng)
   scene/
     Experience.tsx             # Canvas, renderer, shadow map
     CameraRig.tsx              # GSAP ScrollTrigger → spline camera + tracking shot
-    Atmosphere.tsx             # sương mù / ánh sáng môi trường / exposure theo độ sâu
+    Atmosphere.tsx             # sương mù / ánh sáng môi trường / env map theo độ sâu
     Zone.tsx                   # bật/tắt một vùng mà không đổi số lượng đèn
     AimedLight.tsx             # spot/directional có target nằm trong scene graph
+    PostFX.tsx                 # bloom, DoF, grade, vignette, CA, grain
     BioLight.tsx               # PointLight phát quang: nhấp nháy, đổ bóng mềm
     DeepEnvironment.tsx        # environment map xanh sâu (HDR cube dựng bằng Lightformer)
     Seabed.tsx                 # đáy biển displace + đá procedural
     MarineSnow.tsx             # tuyết biển: điểm GPU sáng lên gần nguồn phát quang + mảnh vụn nhận bóng
   state/                       # Zustand: scene/chất lượng/reduced-motion, tiến độ tải
-  ui/                          # Loader (tiến độ thật), HUD, bảng duyệt ánh sáng
+  ui/                          # Loader (tiến độ thật), mở đầu, thẻ chương, thước đo độ sâu
 ```
 
 ## Model 3D & license

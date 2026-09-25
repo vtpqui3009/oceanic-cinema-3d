@@ -47,8 +47,24 @@ const KEYS: Key[] = [
   { p: 0.77, pos: [1.2, Y2 + 0.4, -12], target: [0, Y2 - 0.6, -19], fov: 34 },
   { p: 0.84, pos: [2.5, Y3 + 14, 8], target: [0.2, Y3 + 1, 0], fov: 38 },
   { p: 0.92, pos: [3.3, Y3 + 1.25, 4.6], target: [0.2, Y3 + 0.95, 0.3], fov: 30, hold: true, stage: 3 },
-  { p: 1.0, pos: [1.7, Y3 + 1.15, 2.7], target: [0, Y3 + 1.2, 0.8], fov: 28, hold: true },
+  { p: 1.0, pos: [1.7, Y3 + 1.15, 2.7], target: [-0.6, Y3 + 1.1, 0.7], fov: 28, hold: true },
 ]
+
+/**
+ * Shots are composed for ~16:9. On narrower screens keep the horizontal
+ * framing by combining a slightly wider lens with a dolly back — widening
+ * the lens alone would distort, dollying alone would lose the subject.
+ */
+const DESIGN_ASPECT = 1.6
+function portraitFov(fov: number, aspect: number) {
+  if (aspect >= DESIGN_ASPECT) return fov
+  const t = Math.tan(THREE.MathUtils.degToRad(fov) / 2) * Math.pow(DESIGN_ASPECT / aspect, 0.5)
+  return THREE.MathUtils.radToDeg(2 * Math.atan(t))
+}
+function portraitPull(aspect: number) {
+  if (aspect >= DESIGN_ASPECT) return 1
+  return Math.min(1 + 0.12 * (DESIGN_ASPECT / aspect - 1), 1.3)
+}
 
 const easeIn = (s: number) => 1 - Math.cos((s * Math.PI) / 2)
 const easeOut = (s: number) => Math.sin((s * Math.PI) / 2)
@@ -88,6 +104,7 @@ function sampleTracking(p: number, pos: THREE.Vector3, tgt: THREE.Vector3) {
  */
 export function CameraRig() {
   const camera = useThree((s) => s.camera) as THREE.PerspectiveCamera
+  const size = useThree((s) => s.size)
   const reduced = useSceneStore((s) => s.reducedMotion)
   const setStage = useSceneStore((s) => s.setStage)
   const setIntro = useSceneStore((s) => s.setIntro)
@@ -126,12 +143,17 @@ export function CameraRig() {
     if (store.intro !== intro) setIntro(intro)
 
     let fov: number
+    // portrait screens: dolly back so the subject keeps its horizontal room
+    const pull = portraitPull(size.width / size.height)
     if (reduced) {
       // no camera travel: hard cut to each creature's hero shot
       const key = KEYS.find((k) => k.stage === stage)!
       tmp.pos.set(...key.pos)
       tmp.tgt.set(...key.target)
+      // scene III is framed by the tracking shot, not a spline key
+      if (stage === 2) sampleTracking(key.p, tmp.pos, tmp.tgt)
       fov = key.fov
+      tmp.pos.sub(tmp.tgt).multiplyScalar(pull).add(tmp.tgt)
       camera.position.copy(tmp.pos)
       tmp.curTgt.copy(tmp.tgt)
     } else {
@@ -148,7 +170,7 @@ export function CameraRig() {
         const h = s ? holdWeight(i, p) : 0
         if (h <= 0 || !s) continue
         tmp.tTgt.copy(s).sub(tmp.tgt)
-        tmp.tgt.addScaledVector(tmp.tTgt, h * 0.75)
+        tmp.tgt.addScaledVector(tmp.tTgt, h * 0.95)
         tmp.pos.addScaledVector(tmp.tTgt, h * 0.35)
       }
       // slow, non-repeating drift — a diver's breathing, not a tripod
@@ -157,6 +179,10 @@ export function CameraRig() {
       tmp.pos.y += Math.sin(t * 0.23 + 2) * 0.07
       tmp.tgt.x += Math.sin(t * 0.19 + 4) * 0.04
 
+      tmp.pos.sub(tmp.tgt).multiplyScalar(pull).add(tmp.tgt)
+      // on tall screens the chapter card owns the lower third: aim a little
+      // lower so the subject sits higher in the frame
+      tmp.tgt.y -= tmp.pos.distanceTo(tmp.tgt) * 0.09 * (pull - 1) / 0.3
       if (!tmp.started || pinned) {
         camera.position.copy(tmp.pos)
         tmp.curTgt.copy(tmp.tgt)
@@ -167,6 +193,7 @@ export function CameraRig() {
       tmp.curTgt.lerp(tmp.tgt, k)
     }
     camera.lookAt(tmp.curTgt)
+    fov = portraitFov(fov, size.width / size.height)
     if (Math.abs(camera.fov - fov) > 0.01) {
       camera.fov += (fov - camera.fov) * (reduced ? 1 : 0.08)
       camera.updateProjectionMatrix()

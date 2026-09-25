@@ -25,7 +25,7 @@ export function Overlay() {
 
       <article className={`chapter ${intro ? 'chapter--hidden' : ''}`} key={stage} aria-live="polite">
         <p className="chapter__zone">
-          {c.numeral} — {c.zone} · {c.range}
+          {c.numeral} — {c.zone} · <span className="nowrap">{c.range}</span>
         </p>
         <h2 className="chapter__name">{c.creature}</h2>
         <p className="chapter__latin">{c.latin}</p>
