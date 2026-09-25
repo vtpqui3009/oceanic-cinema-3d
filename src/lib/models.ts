@@ -1,0 +1,23 @@
+import manifest from 'virtual:model-manifest'
+
+export type CreatureId = 'anglerfish' | 'jellyfish' | 'squid' | 'fish'
+
+export const CREATURES: Record<CreatureId, { label: string; latin: string }> = {
+  fish: { label: 'Đàn cá nhỏ', latin: 'Lates calcarifer' },
+  jellyfish: { label: 'Sứa phát quang', latin: 'Atolla wyvillei' },
+  squid: { label: 'Mực khổng lồ', latin: 'Architeuthis dux' },
+  anglerfish: { label: 'Cá câu vực thẳm', latin: 'Melanocetus johnsonii' },
+}
+
+/** URL of a user-supplied model in /public/models (e.g. anglerfish.glb), if any. */
+export function userModelUrl(id: CreatureId): string | null {
+  const file = manifest.find((f) => f.replace(/\.(glb|gltf)$/i, '').toLowerCase() === id)
+  return file ? `${import.meta.env.BASE_URL}models/${file}` : null
+}
+
+/** Human label for a URL drei's loader reports as in-flight. */
+export function labelForUrl(url: string | undefined): string | null {
+  if (!url) return null
+  const hit = (Object.keys(CREATURES) as CreatureId[]).find((id) => url.toLowerCase().includes(`/${id}.`))
+  return hit ? CREATURES[hit].label : null
+}
