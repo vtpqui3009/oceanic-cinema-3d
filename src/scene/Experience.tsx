@@ -34,6 +34,9 @@ export function Experience() {
       camera={{ position: [0, 6.5, 13], fov: 38, near: 0.05, far: 140 }}
       // tone mapping + grading happen in <PostFX/> (FilmGradeEffect)
       onCreated={({ gl, scene, camera }) => {
+        // skip per-program error queries in production (faster compiles, and no
+        // noise from harmless driver warnings such as D3D's X4122)
+        gl.debug.checkShaderErrors = import.meta.env.DEV
         if (import.meta.env.DEV) Object.assign(window, { __three: { gl, scene, camera } })
       }}
     >

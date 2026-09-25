@@ -1,12 +1,12 @@
 import { Suspense, useLayoutEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import defaultFishUrl from '../../assets/barramundi.glb?url'
 import { DEFAULT_FLOCK, createFlock, stepFlock, type FlockParams } from '../../lib/boids'
 import { deform } from '../../lib/deform'
 import { subjects } from '../../lib/dive'
-import { userModelUrl } from '../../lib/models'
+import { CREATURES, userModelUrl } from '../../lib/models'
+import { useSafeGLTF } from '../../lib/loadGLTF'
 import { BioLight } from '../../scene/BioLight'
 import { useSceneStore } from '../../state/useSceneStore'
 
@@ -35,7 +35,7 @@ function School({ center = [0, 0, 0] }: Props) {
   const quality = useSceneStore((s) => s.quality)
   const reduced = useSceneStore((s) => s.reducedMotion)
   const count = quality === 'high' ? 72 : 30
-  const gltf = useGLTF(FISH_URL)
+  const gltf = useSafeGLTF(FISH_URL, CREATURES.fish.label)
   const mesh = useRef<THREE.InstancedMesh>(null!)
   const shimmer = useRef<THREE.Group>(null!)
 
@@ -156,7 +156,7 @@ function School({ center = [0, 0, 0] }: Props) {
       <instancedMesh ref={mesh} args={[geometry, material, count]} castShadow receiveShadow />
       {/* sunlight thrown back off silver flanks: a soft light that swims with the school */}
       <group ref={shimmer}>
-        <BioLight color="#bff6ff" intensity={6} distance={9} castShadow={false} seed={3} />
+        <BioLight color="#bff6ff" intensity={3.2} distance={9} castShadow={false} seed={3} />
       </group>
     </>
   )
