@@ -23,6 +23,8 @@ export const dive = {
   depth: 0,
   /** The squid's position along SQUID_PATH (0…1), eased with inertia. */
   squidU: 0.03,
+  /** ≥ 0: forces the dive to this point (the warm-up tour behind the loader). */
+  override: -1,
 }
 
 /**

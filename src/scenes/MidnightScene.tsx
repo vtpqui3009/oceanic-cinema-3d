@@ -46,16 +46,16 @@ export function MidnightScene() {
 
       <Seabed position={[0, FLOOR, -6]} size={56} seed={29} flat={10} relief={0.8} color="#4d5c68" rockColor="#1c242b" rocks={20} />
       <group ref={shadow}>
-        {stage === 2 && (
-          <ContactShadows
-            scale={7}
-            resolution={512}
-            blur={3}
-            far={7}
-            opacity={0.5}
-            color="#000000"
-          />
-        )}
+        {/* always mounted (remounting recompiled its shaders mid-dive); renders only on its stage */}
+        <ContactShadows
+          frames={stage === 2 ? Infinity : 0}
+          scale={7}
+          resolution={512}
+          blur={3}
+          far={7}
+          opacity={0.5}
+          color="#000000"
+        />
       </group>
     </Zone>
   )

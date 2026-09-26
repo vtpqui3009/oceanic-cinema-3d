@@ -115,7 +115,7 @@ export function CameraRig() {
     () => ({
       pos: new THREE.Vector3(), tgt: new THREE.Vector3(), tPos: new THREE.Vector3(), tTgt: new THREE.Vector3(),
       curTgt: new THREE.Vector3(), started: false,
-      camPos: new SmoothVec3(), camTgt: new SmoothVec3(), squidV: { v: 0 },
+      camPos: new SmoothVec3(), camTgt: new SmoothVec3(), squidV: { v: 0 }, wasForced: false,
     }),
     [],
   )
@@ -124,7 +124,7 @@ export function CameraRig() {
     const tween = gsap.to(scrollProxy, {
       p: 1,
       ease: 'none',
-      scrollTrigger: { trigger: '.dive', start: 'top top', end: 'bottom bottom', scrub: reduced ? true : 1 },
+      scrollTrigger: { trigger: '.dive', start: 'top top', end: 'bottom bottom', scrub: reduced ? true : 0.3 },
     })
     return () => {
       tween.scrollTrigger?.kill()
@@ -133,15 +133,19 @@ export function CameraRig() {
   }, [reduced])
 
   useFrame(({ clock }, dt) => {
-    const pinned = PINNED_P !== null
-    const p = pinned ? PINNED_P : scrollProxy.p
+    const forced = dive.override >= 0
+    const pinned = PINNED_P !== null || forced
+    const p = forced ? dive.override : PINNED_P ?? scrollProxy.p
+    // when the warm-up tour hands back to the scroll, cut (don't glide) home
+    if (tmp.wasForced && !forced) tmp.started = false
+    tmp.wasForced = forced
     dive.p = p
     dive.stageF = stageFromP(p)
     dive.depth = depthFromP(p)
     const step = Math.min(dt, 0.1)
     // the squid swims with its own inertia instead of jumping with the scroll
     const squidTarget = squidProgress(reduced ? STAGE_P[2] : p)
-    dive.squidU = pinned || reduced ? squidTarget : smoothDamp(dive.squidU, squidTarget, tmp.squidV, 0.9, step)
+    dive.squidU = pinned || reduced ? squidTarget : smoothDamp(dive.squidU, squidTarget, tmp.squidV, 0.45, step)
 
     const stage = Math.round(dive.stageF)
     const store = useSceneStore.getState()
@@ -197,13 +201,14 @@ export function CameraRig() {
       }
       // critically-damped springs: the camera gathers and sheds speed
       // smoothly whenever the scroll starts or stops
-      camera.position.copy(tmp.camPos.update(tmp.pos, 0.55, step))
-      tmp.curTgt.copy(tmp.camTgt.update(tmp.tgt, 0.45, step))
+      // (short times: the camera arrives ~0.4 s after the scroll stops)
+      camera.position.copy(tmp.camPos.update(tmp.pos, 0.22, step))
+      tmp.curTgt.copy(tmp.camTgt.update(tmp.tgt, 0.18, step))
     }
     camera.lookAt(tmp.curTgt)
     fov = portraitFov(fov, size.width / size.height)
     if (Math.abs(camera.fov - fov) > 0.01) {
-      camera.fov = reduced ? fov : damp(camera.fov, fov, 5, Math.min(dt, 0.1))
+      camera.fov = reduced ? fov : damp(camera.fov, fov, 8, Math.min(dt, 0.1))
       camera.updateProjectionMatrix()
     }
   })

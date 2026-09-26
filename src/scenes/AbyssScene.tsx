@@ -48,17 +48,17 @@ export function AbyssScene() {
       <Seabed clearings={CLEARINGS} />
       {SHOW_CAST && <CombJellies />}
       {SHOW_CAST && <SeaPens clearings={CLEARINGS} />}
-      {stage === 3 && (
-        <ContactShadows
-          position={[0, 0.02, 0]}
-          scale={6}
-          resolution={quality === 'high' ? 512 : 256}
-          blur={2.6}
-          far={2.2}
-          opacity={0.75}
-          color="#000000"
-        />
-      )}
+      {/* always mounted (remounting recompiled its shaders mid-dive); renders only on its stage */}
+      <ContactShadows
+        frames={stage === 3 ? Infinity : 0}
+        position={[0, 0.02, 0]}
+        scale={6}
+        resolution={quality === 'high' ? 512 : 256}
+        blur={2.6}
+        far={2.2}
+        opacity={0.75}
+        color="#000000"
+      />
     </Zone>
   )
 }

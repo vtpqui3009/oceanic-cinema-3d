@@ -28,17 +28,17 @@ export function TwilightScene() {
       {SHOW_CAST && <DriftJellies />}
 
       <Seabed position={[0.5, -5.2, -1]} size={36} seed={11} flat={3} relief={2.2} color="#6d8796" rockColor="#26323b" rocks={16} />
-      {stage === 1 && (
-        <ContactShadows
-          position={[0, -5.15, 0]}
-          scale={9}
-          resolution={quality === 'high' ? 512 : 256}
-          blur={2.8}
-          far={5.5}
-          opacity={0.6}
-          color="#000814"
-        />
-      )}
+      {/* always mounted (remounting recompiled its shaders mid-dive); renders only on its stage */}
+      <ContactShadows
+        frames={stage === 1 ? Infinity : 0}
+        position={[0, -5.15, 0]}
+        scale={9}
+        resolution={quality === 'high' ? 512 : 256}
+        blur={2.8}
+        far={5.5}
+        opacity={0.6}
+        color="#000814"
+      />
     </Zone>
   )
 }

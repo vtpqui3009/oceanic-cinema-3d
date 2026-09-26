@@ -138,7 +138,8 @@ export function Whale() {
   )
 
   useFrame(({ clock }) => {
-    const inWindow = !reduced && useExperienceStore.getState().started && dive.p > WINDOW[0] && dive.p < WINDOW[1]
+    // (also shown during the loader's warm-up tour, so its shaders are ready)
+    const inWindow = !reduced && (useExperienceStore.getState().started || dive.override >= 0) && dive.p > WINDOW[0] && dive.p < WINDOW[1]
     const t = clock.elapsedTime
     if (inWindow && state.t0 < 0) {
       // enter from off-screen, crossing the view a little below the lens
@@ -157,6 +158,8 @@ export function Whale() {
     const crossing = age >= 0 && x < SPAN / 2
     // restart the pass a while after it ends, if the viewer lingers here
     if (!crossing && state.t0 >= 0 && (!inWindow || age > SPAN / SPEED + 12)) state.t0 = -1
+    // the warm-up pass must not use up the real one
+    if (dive.override >= 0 && state.t0 >= 0 && dive.p >= WINDOW[1] - 0.05) state.t0 = -1
     state.visible = crossing && inWindow
     group.current.visible = state.visible
     if (!state.visible) return

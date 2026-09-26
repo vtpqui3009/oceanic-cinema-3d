@@ -65,17 +65,17 @@ export function ShallowsScene() {
       {SHOW_CAST && <MantaRay />}
 
       <Seabed position={[0, -6, 0]} seed={3} flat={6} relief={1.1} color="#d9cfb2" rockColor="#5b6a63" rocks={18} caustics />
-      {stage === 0 && (
-        <ContactShadows
-          position={[0, -5.9, 0]}
-          scale={16}
-          resolution={512}
-          blur={3}
-          far={7}
-          opacity={0.35}
-          color="#062a33"
-        />
-      )}
+      {/* always mounted (remounting recompiled its shaders mid-dive); renders only on its stage */}
+      <ContactShadows
+        frames={stage === 0 ? Infinity : 0}
+        position={[0, -5.9, 0]}
+        scale={16}
+        resolution={512}
+        blur={3}
+        far={7}
+        opacity={0.35}
+        color="#062a33"
+      />
     </Zone>
   )
 }
