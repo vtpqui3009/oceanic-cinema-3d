@@ -25,7 +25,15 @@ export const dive = {
   squidU: 0.03,
   /** ≥ 0: forces the dive to this point (the warm-up tour behind the loader). */
   override: -1,
+  /** Explore mode: the player, not the scroll, drives the dive. */
+  game: false,
 }
+
+/**
+ * Where the lens focuses when a controller other than the film camera owns
+ * it (explore mode: whatever is in the viewfinder).
+ */
+export const lensFocus = { active: false, point: new THREE.Vector3() }
 
 /**
  * Live world position of each stage's subject (school centroid, jellyfish…),
@@ -130,6 +138,26 @@ export const SQUID_PATH = new THREE.CatmullRomCurve3(
   false,
   'centripetal',
 )
+/**
+ * Explore mode: the squid patrols a closed loop over the canyon instead of
+ * the one-way tracking-shot path (so it never swims backwards).
+ */
+export const SQUID_LOOP = new THREE.CatmullRomCurve3(
+  [
+    new THREE.Vector3(5, ZONE_Y[2] + 1.4, 4),
+    new THREE.Vector3(-3, ZONE_Y[2] + 2.2, 2),
+    new THREE.Vector3(-7, ZONE_Y[2] + 0.8, -6),
+    new THREE.Vector3(-2, ZONE_Y[2] - 0.4, -15),
+    new THREE.Vector3(6, ZONE_Y[2] + 0.6, -12),
+    new THREE.Vector3(7.5, ZONE_Y[2] + 1.6, -3),
+  ],
+  true,
+  'centripetal',
+)
+/** The squid's current route (film: tracking path; explore: patrol loop). */
+export function squidCurve() {
+  return dive.game ? SQUID_LOOP : SQUID_PATH
+}
 export function squidProgress(p: number) {
   return smoothstep(TRACK.start, TRACK.end, p) * 0.94 + 0.03
 }

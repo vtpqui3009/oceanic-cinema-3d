@@ -8,7 +8,7 @@ import { AimedSpot } from '../../scene/AimedLight'
 import { CreatureModel } from '../CreatureModel'
 import { useProcedural } from '../../lib/useProcedural'
 import { CREATURES, userModelUrl } from '../../lib/models'
-import { SQUID_PATH, dive, subjects } from '../../lib/dive'
+import { dive, squidCurve, subjects } from '../../lib/dive'
 import { damp } from '../../lib/smooth'
 import { useSceneStore } from '../../state/useSceneStore'
 
@@ -34,9 +34,11 @@ export function Squid({ zoneOrigin }: { zoneOrigin: [number, number, number] }) 
     // eased by the camera rig (inertia; held at the hero shot in reduced motion)
     const u = dive.squidU
     const dt = Math.min(delta, 0.1)
-    SQUID_PATH.getPointAt(u, at)
-    if (u >= 0.99) ahead.copy(at).add(SQUID_PATH.getTangentAt(1, v.world))
-    else SQUID_PATH.getPointAt(u + 0.01, ahead)
+    const path = squidCurve()
+    path.getPointAt(u, at)
+    if (dive.game) path.getPointAt((u + 0.01) % 1, ahead)
+    else if (u >= 0.99) ahead.copy(at).add(path.getTangentAt(1, v.world))
+    else path.getPointAt(u + 0.01, ahead)
     const t = reduced ? 0 : clock.elapsedTime
     at.y += Math.sin(t * 0.8) * 0.05
     group.current.position.set(at.x - zoneOrigin[0], at.y - zoneOrigin[1], at.z - zoneOrigin[2])

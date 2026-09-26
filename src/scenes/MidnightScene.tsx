@@ -9,7 +9,7 @@ import { AimedDirectional, AimedSpot } from '../scene/AimedLight'
 import { Seabed } from '../scene/Seabed'
 import { Squid } from '../creatures/squid/Squid'
 import { Lanternfish } from '../creatures/ambient/Lanternfish'
-import { SQUID_PATH, ZONE_Y, dive } from '../lib/dive'
+import { ZONE_Y, dive, squidCurve } from '../lib/dive'
 import { useSceneStore } from '../state/useSceneStore'
 
 const ORIGIN: [number, number, number] = [0, ZONE_Y[2], 0]
@@ -29,7 +29,7 @@ export function MidnightScene() {
   useFrame(() => {
     if (!zoneVisible(zone)) return // off screen: no simulation cost
     if (!shadow.current) return
-    SQUID_PATH.getPointAt(dive.squidU, at)
+    squidCurve().getPointAt(dive.squidU, at)
     shadow.current.position.set(at.x, FLOOR + 0.06, at.z)
   })
 

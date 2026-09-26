@@ -1,10 +1,28 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo } from 'react'
 import * as THREE from 'three'
 import { Noise3D, createRng, smoothstep } from '../lib/noise'
 import { bakeSediment } from '../lib/textures'
 import { withCaustics } from '../lib/caustics'
 import { mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { useSceneStore } from '../state/useSceneStore'
+import { ZONE_Y } from '../lib/dive'
+import { useZoneIndex } from './Zone'
+
+/**
+ * World-space floor height per zone (the same noise as the mesh), so the
+ * explore-mode submarine can hover over the dunes without raycasts.
+ */
+export const seabedHeight: (((x: number, z: number) => number) | undefined)[] = []
+
+function heightField(n: Noise3D, size: number, flat: number, relief: number) {
+  return (x: number, z: number) => {
+    const r = Math.hypot(x, z)
+    const dunes = n.fbm(x * 0.12, 0, z * 0.12, 4) * relief
+    const detail = n.fbm(x * 0.9, 3, z * 0.9, 3) * 0.08
+    const rise = smoothstep(size * 0.13, size * 0.43, r) * relief * 1.2 * (0.5 + n.noise(x * 0.05, 7, z * 0.05))
+    return dunes * smoothstep(flat, flat * 3.5, r) + detail + rise
+  }
+}
 
 interface Props {
   position?: [number, number, number]
@@ -38,20 +56,24 @@ export function Seabed({
   clearings,
 }: Props) {
   const quality = useSceneStore((s) => s.quality)
+  const zone = useZoneIndex()
+  const [px, py, pz] = position
+  useEffect(() => {
+    if (zone === null || rotation) return
+    const h = heightField(new Noise3D(seed), size, flat, relief)
+    const base = ZONE_Y[zone] + py
+    seabedHeight[zone] = (x, z) => base + h(x - px, z - pz)
+    return () => void (seabedHeight[zone] = undefined)
+  }, [zone, rotation, seed, size, flat, relief, px, py, pz])
+
   const { floor, rocks, rockMat, floorMat } = useMemo(() => {
     const n = new Noise3D(seed)
+    const height = heightField(n, size, flat, relief)
     const segs = quality === 'high' ? 140 : 80
     const floor = new THREE.PlaneGeometry(size, size, segs, segs)
     floor.rotateX(-Math.PI / 2)
     const p = floor.attributes.position as THREE.BufferAttribute
-    for (let i = 0; i < p.count; i++) {
-      const x = p.getX(i), z = p.getZ(i)
-      const r = Math.hypot(x, z)
-      const dunes = n.fbm(x * 0.12, 0, z * 0.12, 4) * relief
-      const detail = n.fbm(x * 0.9, 3, z * 0.9, 3) * 0.08
-      const rise = smoothstep(size * 0.13, size * 0.43, r) * relief * 1.2 * (0.5 + n.noise(x * 0.05, 7, z * 0.05))
-      p.setY(i, dunes * smoothstep(flat, flat * 3.5, r) + detail + rise)
-    }
+    for (let i = 0; i < p.count; i++) p.setY(i, height(p.getX(i), p.getZ(i)))
     floor.computeVertexNormals()
 
     const tex = bakeSediment(seed + 16)

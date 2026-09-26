@@ -3,7 +3,7 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Bloom, ChromaticAberration, EffectComposer, FXAA, Noise, Vignette } from '@react-three/postprocessing'
 import { BlendFunction, DepthOfFieldEffect, Effect, VignetteEffect } from 'postprocessing'
 import * as THREE from 'three'
-import { dive, subjects } from '../lib/dive'
+import { dive, lensFocus, subjects } from '../lib/dive'
 import { smoothstep } from '../lib/noise'
 import { useSceneStore } from '../state/useSceneStore'
 import { liveAtmosphere } from './Atmosphere'
@@ -56,7 +56,7 @@ void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor)
 `
 
 /** `?fx=0` renders without post-processing (profiling). */
-const NO_FX = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('fx') === '0'
+export const NO_FX = typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('fx') === '0'
 
 class FilmGradeEffect extends Effect {
   constructor() {
@@ -107,7 +107,8 @@ export function PostFX() {
 
     // pull focus onto the nearest stage's subject; open water between stages
     const subject = subjects[Math.round(s)]
-    if (subject) want.copy(subject)
+    if (lensFocus.active) want.copy(lensFocus.point)
+    else if (subject) want.copy(subject)
     else want.copy(camera.position).add(camera.getWorldDirection(dir).multiplyScalar(6))
     // rack focus smoothly, but cut straight to it after a big jump (new zone)
     if (focus.distanceToSquared(want) > 16) focus.copy(want)

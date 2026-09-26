@@ -5,6 +5,8 @@ Vite + React + TypeScript + React Three Fiber.
 
 > **Trạng thái: hoàn thành (5 / 5)** — 4 cảnh, camera lặn theo scroll, animation
 > procedural cho mọi sinh vật, hậu kỳ điện ảnh, tối ưu hiệu năng và di động.
+> Có thêm **chế độ game "Thám hiểm — Nhiếp ảnh gia biển sâu"**: tự lái tàu lặn và
+> chụp ảnh cả 11 loài (xem [bên dưới](#chế-độ-thám-hiểm--nhiếp-ảnh-gia-biển-sâu)).
 
 | I · Nước cạn | II · Chạng vạng | III · Nửa tối | IV · Vực thẳm |
 | --- | --- | --- | --- |
@@ -142,6 +144,76 @@ Chênh lệch nằm trong biên nhiễu. Chú ý: không dùng `backdrop-filter`
 hiển thị (nó phải làm mờ lại canvas mỗi khung); thẻ và nhật ký chỉ bật blur
 khi đang mở.
 
+## Chế độ Thám hiểm — Nhiếp ảnh gia biển sâu
+
+Ở màn bắt đầu có hai lựa chọn: **Bắt đầu lặn · Xem phim tài liệu** (cuộn như
+cũ) và **Thám hiểm · Nhiếp ảnh gia biển sâu**. Nút trên thanh trên cùng cho
+phép đổi chế độ bất cứ lúc nào.
+
+**Vòng chơi.** Bạn lái một tàu lặn nhỏ ở góc nhìn thứ nhất, bơi tự do trong
+bốn "điểm lặn" và chụp ảnh sinh vật. Mỗi ảnh được chấm 1–3 ★. Album lưu ảnh
+đẹp nhất của từng loài. Chụp đủ 11 loài là hoàn thành; điểm tối đa 33 ★.
+
+- **Dưỡng khí** cạn dần, nhanh hơn khi xuống sâu (khoảng 3 phút ở vùng I, 1,6
+  phút ở vực thẳm). Nạp lại ở mặt nước hoặc trong **cột bọt khí ◎** mỗi vùng.
+  Hết khí thì tàu tự nổi về mặt nước; ảnh đã chụp vẫn giữ nguyên.
+- **Vỏ tàu giới hạn độ sâu:** ban đầu chịu được 500 m (vùng I–II). Chụp 4
+  loài ở vùng I–II để nâng lên 1 000 m (mở vùng III). Chụp 6 loài ở vùng I–III
+  để nâng lên 2 500 m (mở vực thẳm).
+- **Lặn xuống vùng sâu hơn:** xuống đáy cột bọt khí và giữ ▼. **Lên lại:** bơi
+  lên khỏi trần của vùng.
+- **Sonar** hiện vòng sáng trên các loài chưa chụp trong 4 giây, hồi chiêu 9
+  giây. Cá voi (loài bí mật) thỉnh thoảng bơi ngang tầng nước trên của vùng II.
+
+| | Máy tính | Điện thoại |
+| --- | --- | --- |
+| Bơi | `W A S D` / phím mũi tên | Cần điều khiển (chạm bên trái) |
+| Lên / xuống | `Space`/`E` · `Shift`/`Q` | Nút ▲ ▼ |
+| Nhìn | Chuột (pointer lock). Nếu trình duyệt chặn thì kéo chuột | Kéo bên phải màn hình |
+| Zoom | Giữ chuột phải · con lăn · `Z` | Nút 🔍 |
+| Chụp | Click · `F` | Nút chụp |
+| Sonar · Album | `R` · `Tab` | Nút Sonar · nút Album |
+
+**Chấm điểm ảnh** (`game/photo.ts`) dùng lại các hình cầu bao của hệ thống
+khám phá, không raycast và không đọc pixel:
+
+- **Bố cục:** sinh vật gần tâm khung, chiếm khoảng 12–35 % chiều cao khung.
+- **Độ trong của nước:** xa quá thì mờ, bị trừ điểm.
+- **Độ nét:** tàu đang lao nhanh hoặc đang quay thì ảnh bị nhoè.
+
+Khung ngắm hiện số sao dự kiến theo thời gian thực. Ảnh thu nhỏ là JPEG
+320×180, được chép từ canvas ngay sau khi hậu kỳ vẽ xong khung hình đó. Nhờ
+vậy không cần `preserveDrawingBuffer`, vốn tốn hiệu năng ở mọi khung. Mỗi ảnh
+khoảng 8–15 KB, lưu trong `localStorage`.
+
+**Kiến trúc: gần như mọi thứ dùng lại từ chế độ phim.** `PlayerController`
+thay `CameraRig` và mỗi khung ghi vào `dive` đúng những giá trị mà camera phim
+vẫn ghi (vùng, độ sâu, vị trí con mực). Ánh sáng theo vùng, sương mù, âm nhạc,
+hậu kỳ và cơ chế ẩn vùng xa vì thế chạy nguyên như cũ.
+
+- **Va chạm không raycast:** đáy biển dùng chính hàm nhiễu đã tạo lưới đáy
+  (`seabedHeight`). Tàu bị đẩy nhẹ khỏi thân các sinh vật lớn; ở mép điểm lặn
+  có dòng chảy đẩy ngược lại.
+- **Chuyển vùng:** màn hình tối đi trong 0,5 giây. Mọi shader của các vùng đã
+  được chuẩn bị sẵn trong chuyến lặn thử sau màn tải, nên không bị khựng.
+- **Con mực:** trong game nó tuần tra một vòng khép kín (`SQUID_LOOP`) thay cho
+  đường quay một chiều của cảnh phim.
+
+**Hiệu năng của chế độ game:**
+
+- **Không thêm đèn three.js nào**, nên không có biến thể shader mới. Đèn trên
+  tàu là uniform dùng chung (`diverLight`).
+- **Chỉ 1 draw call mới:** 4 cột bọt khí gộp chung một `Points`, chuyển động
+  hoàn toàn trong vertex shader. Cột bọt khí luôn được mount để shader của nó
+  cũng được biên dịch trước.
+- **Mỗi khung chỉ tốn O(1) JS:** di chuyển, va chạm, dưỡng khí. Khung ngắm
+  chấm điểm 10 lần/giây.
+- **HUD** cập nhật bằng `transform`/`opacity`/`textContent` trong vòng rAF
+  riêng, chỉ ghi khi giá trị đổi. Hiệu ứng nhấp nháy khi sắp hết khí chỉ chạy
+  lúc đang cảnh báo.
+- **Chỉ vùng đang đứng được render.** Trong một vùng, `stageF` luôn là số
+  nguyên, nên vùng kế bên không bao giờ "hé" ra.
+
 ## Dàn diễn viên phụ (GPU-animated)
 
 Mỗi cảnh có thêm sinh vật nền. Toàn bộ chuyển động của chúng là hàm của
@@ -195,10 +267,19 @@ renderer tắt), theo thứ tự:
   xem bị tắt hẳn (`visible = false`), nên mỗi pixel chỉ tính 4–6 đèn và 1
   shadow map thay vì 16 đèn / 6 shadow map. Đèn của vùng cũ mờ về 0 đúng ở
   điểm giữa hai vùng rồi mới đổi, nên không thấy "giật" ánh sáng.
-- **Biên dịch shader trước:** mỗi vùng là một cấu hình đèn khác nhau (một
-  biến thể shader khác). `ShaderPrewarm` biên dịch sẵn cả 4 cấu hình bằng
-  `compileAsync` trong lúc màn hình tải còn hiện — không còn khựng khi lặn
-  sang vùng mới.
+- **Không có gì được tạo "lười" giữa chuyến lặn:** mỗi vùng là một cấu hình
+  đèn khác nhau (một biến thể shader khác). `ShaderPrewarm` làm ba việc trong
+  lúc màn hình tải còn hiện:
+  1. biên dịch sẵn cả 4 cấu hình bằng `compileAsync`;
+  2. upload mọi texture (`initTexture`);
+  3. cho camera thật đi một **chuyến lặn thử** qua 26 điểm của cả chuyến. Bóng
+     đổ, `ContactShadows`, transmission và hậu kỳ nhờ vậy được tạo đúng kích
+     thước thật.
+
+  Kết quả đo: trước đây một lượt lặn sinh thêm 62 shader, 20 texture và 69
+  geometry. Giờ là 0 shader và 0 texture.
+- **Camera bám cuộn nhanh:** GSAP scrub 0,3 s, lò xo camera khoảng 0,2 s. Camera
+  tới nơi khoảng 0,5 giây sau khi ngừng cuộn (trước đây khoảng 2 giây).
 - **Transmission** chỉ còn ở chuông sứa (render ở ½ độ phân giải); các phần
   trong suốt khác dùng alpha. Shadow map đèn điểm 512 px, cập nhật mỗi 2
   khung; mỗi vùng chỉ 1 đèn đổ bóng.
@@ -206,8 +287,8 @@ renderer tắt), theo thứ tự:
   thưa hơn; cảnh sứa từ ~330k xuống ~170k tam giác.
 - **Hậu kỳ gọn:** không MSAA trên buffer HDR (dùng FXAA gộp vào pass hiệu
   ứng), DoF ở 0,4 độ phân giải, bloom 6 mức. Mesh vùng xa vẫn nằm trên layer
-  ẩn (camera + shadow camera bỏ qua); `ContactShadows` chỉ mount ở cảnh đang
-  xem. `?fx=0` tắt hậu kỳ để đo.
+  ẩn (camera + shadow camera bỏ qua); `ContactShadows` luôn mount (mount lại
+  từng làm biên dịch lại shader giữa chuyến lặn) nhưng chỉ render ở cảnh đang xem. `?fx=0` tắt hậu kỳ để đo.
 - **Asset:** model cá 12,5 MB → 239 KB (WebP 512 px) và được inline; mọi
   texture khác bake procedural lúc tải (không có request mạng nào ngoài font).
   Build một file JS ~1,9 MB (≈675 KB gzip).
@@ -260,7 +341,15 @@ src/
     Seabed.tsx                 # đáy biển displace + đá procedural
     MarineSnow.tsx             # tuyết biển: điểm GPU sáng lên gần nguồn phát quang + mảnh vụn nhận bóng
   state/                       # Zustand: scene/chất lượng/reduced-motion, tiến độ tải
-  ui/                          # Loader (tiến độ thật), mở đầu, thẻ chương, thước đo độ sâu
+  ui/                          # Loader (tiến độ thật + chọn chế độ), mở đầu, thẻ chương, thước độ sâu, nhật ký/album
+  game/
+    PlayerController.tsx       # tàu lặn: điều khiển, quán tính, va chạm, dưỡng khí, chuyển vùng, chụp ảnh
+    world.ts                   # 4 điểm lặn: giới hạn, trạm khí, độ sâu, cấp vỏ tàu
+    photo.ts                   # chấm điểm bố cục + chụp ảnh thu nhỏ từ canvas
+    useGameStore.ts            # album (localStorage), toast, trạng thái người chơi dùng chung
+    GameHUD.tsx                # khung ngắm, dưỡng khí, vỏ tàu, sonar, thông báo, màn thắng
+    TouchControls.tsx          # joystick + nút cho điện thoại
+    BubbleVents.tsx            # 4 cột bọt khí, 1 draw call
 ```
 
 ## Model 3D & license

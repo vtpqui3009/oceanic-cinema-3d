@@ -6,6 +6,8 @@ import { TOTAL_DISCOVERIES } from '../lib/discoveries'
 import { useSceneStore } from '../state/useSceneStore'
 import { useExperienceStore } from '../state/useExperienceStore'
 import { oceanAudio } from '../audio/OceanAudio'
+import { useGameStore } from '../game/useGameStore'
+import { HULL } from '../game/world'
 
 gsap.registerPlugin(ScrollToPlugin)
 
@@ -25,7 +27,8 @@ export function diveTo(p: number) {
 
 export function Overlay() {
   const stage = useSceneStore((s) => s.stage)
-  const intro = useSceneStore((s) => s.intro)
+  const game = useExperienceStore((s) => s.mode === 'game')
+  const intro = useSceneStore((s) => s.intro) && !game
   const found = useExperienceStore((s) => s.found.length)
   const c = CHAPTERS[stage]
   return (
@@ -39,7 +42,7 @@ export function Overlay() {
         <span className="intro__cue" />
       </section>
 
-      <article className={`chapter ${intro ? 'chapter--hidden' : ''}`} key={stage} aria-live="polite">
+      <article className={`chapter ${intro || game ? 'chapter--hidden' : ''}`} key={stage} aria-live="polite">
         <p className="chapter__zone">
           {c.numeral} — {c.zone} · <span className="nowrap">{c.range}</span>
         </p>
@@ -54,8 +57,8 @@ export function Overlay() {
         )}
       </article>
 
-      <DepthGauge />
-      <EndCard />
+      <DepthGauge game={game} />
+      {!game && <EndCard />}
     </>
   )
 }
@@ -81,7 +84,8 @@ function sunlight(d: number) {
   return '0 %'
 }
 
-function DepthGauge() {
+function DepthGauge({ game }: { game: boolean }) {
+  const hull = useGameStore((s) => s.hull)
   const marker = useRef<HTMLDivElement>(null!)
   const value = useRef<HTMLSpanElement>(null!)
   const pressure = useRef<HTMLElement>(null!)
@@ -125,17 +129,20 @@ function DepthGauge() {
         {CHAPTERS.map((ch, i) => (
           <button
             key={ch.numeral}
-            className={`gauge__stop ${stage === i ? 'gauge__stop--on' : ''}`}
+            className={`gauge__stop ${stage === i ? 'gauge__stop--on' : ''} ${game && i > HULL[hull].maxZone ? 'gauge__stop--locked' : ''}`}
             style={{ top: `${scale(depthFromP(STAGE_P[i])) * 100}%` }}
+            // explore mode: stops are a map (you get there by submarine)
+            disabled={game}
             onClick={() => {
               oceanAudio.ui(true)
               diveTo(STAGE_P[i])
             }}
-            aria-label={`Lặn tới ${ch.zone}`}
+            aria-label={game ? ch.zone : `Lặn tới ${ch.zone}`}
             aria-current={stage === i ? 'true' : undefined}
           >
             <span className="gauge__stop-label">
               {ch.numeral} · {ch.zone}
+              {game && i > HULL[hull].maxZone ? ' · 🔒' : ''}
             </span>
           </button>
         ))}

@@ -12,6 +12,7 @@ import { useSceneStore } from '../state/useSceneStore'
 import { discoverables, hitTest, screenPosition } from './discoverables'
 import { diverUniforms } from './diverLight'
 import { cursorEl, hotspotEls } from './domRefs'
+import { player, useGameStore } from '../game/useGameStore'
 
 const TAP_MOVE = 8
 const TAP_MS = 400
@@ -71,6 +72,7 @@ export function Interaction() {
       st.downId = -1
       const isTap = Math.hypot(e.clientX - st.downX, e.clientY - st.downY) < TAP_MOVE && performance.now() - st.downT < TAP_MS
       if (!isTap || e.button > 0) return
+      if (useExperienceStore.getState().mode === 'game') return // the shutter owns clicks
       if ((e.target as Element | null)?.closest?.(UI_SELECTOR)) return
       tap(e.clientX, e.clientY, e.pointerType !== 'mouse')
     }
@@ -137,20 +139,24 @@ export function Interaction() {
     const now = performance.now() / 1000
     const dt = Math.min(delta, 0.1)
     const zone = activeZone(dive.stageF)
+    const game = exp.mode === 'game'
 
     // --- torch: mouse only, fades out when the pointer rests ------------
-    const alive = st.mouse && now - st.lastMove < 2.5 && exp.started && !exp.open && !exp.logbook
-    st.torch = damp(st.torch, alive ? 1 : 0, alive ? 4 : 1.2, dt)
-    diverUniforms.uDiverStrength.value = st.torch
-    if (st.torch > 0.001 && st.x >= 0) {
-      pointOnRay(st.x, st.y, 4, st.ray)
-      if (st.target.y < -9000) st.target.copy(st.ray)
-      st.target.lerp(st.ray, 1 - Math.exp(-12 * dt))
-      diverUniforms.uDiverPos.value.copy(st.target)
+    // (explore mode: the submarine's lamp, driven by the player controller)
+    if (!game) {
+      const alive = st.mouse && now - st.lastMove < 2.5 && exp.started && !exp.open && !exp.logbook
+      st.torch = damp(st.torch, alive ? 1 : 0, alive ? 4 : 1.2, dt)
+      diverUniforms.uDiverStrength.value = st.torch
+      if (st.torch > 0.001 && st.x >= 0) {
+        pointOnRay(st.x, st.y, 4, st.ray)
+        if (st.target.y < -9000) st.target.copy(st.ray)
+        st.target.lerp(st.ray, 1 - Math.exp(-12 * dt))
+        diverUniforms.uDiverPos.value.copy(st.target)
+      }
     }
 
     // --- hover (only when the pointer moved) -----------------------------
-    if (st.moved && st.mouse) {
+    if (st.moved && st.mouse && !game) {
       st.moved = false
       const hit = exp.started && !exp.open && !exp.logbook ? hitTest(st.x, st.y, camera, size.width, size.height, zone, now) : null
       const id = hit?.id ?? null
@@ -158,12 +164,14 @@ export function Interaction() {
     }
 
     // --- hint rings over undiscovered creatures in view --------------------
-    const showHints = exp.started && !exp.open && !exp.logbook && dive.p > 0.035
+    // explore mode: only while the sonar pulse lasts, for species not yet photographed
+    const showHints = exp.started && !exp.open && !exp.logbook && (game ? now < player.sonarUntil : dive.p > 0.035)
+    const photos = game ? useGameStore.getState().photos : null
     let used = 0
     if (showHints) {
       for (const [id, d] of discoverables) {
         if (used >= hotspotEls.length) break
-        if (exp.found.includes(id)) continue
+        if (photos ? photos[id] : exp.found.includes(id)) continue
         if (d.zone !== null && d.zone !== zone) continue
         if (d.active && !d.active()) continue
         if (!screenPosition(d, camera, size.width, size.height, now, st.pos)) continue
@@ -185,13 +193,13 @@ export function Interaction() {
       st.lastP = dive.p
       st.audioTick = 0
       oceanAudio.setDepth(dive.stageF)
-      if (speed > 0.05 && dive.stageF < 0.6 && now - st.lastBubble > 0.7) {
+      if (!game && speed > 0.05 && dive.stageF < 0.6 && now - st.lastBubble > 0.7) {
         st.lastBubble = now
         oceanAudio.bubbles(3)
       }
     }
 
-    const ending = dive.p > 0.965
+    const ending = !game && dive.p > 0.965
     if (ending !== exp.ending) exp.setEnding(ending)
   })
 

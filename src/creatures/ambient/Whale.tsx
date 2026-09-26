@@ -5,7 +5,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { oceanAudio } from '../../audio/OceanAudio'
 import { useDiscoverable } from '../../interaction/discoverables'
 import { deform } from '../../lib/deform'
-import { dive } from '../../lib/dive'
+import { ZONE_Y, dive } from '../../lib/dive'
 import { useSceneStore } from '../../state/useSceneStore'
 import { useExperienceStore } from '../../state/useExperienceStore'
 
@@ -139,7 +139,10 @@ export function Whale() {
 
   useFrame(({ clock }) => {
     // (also shown during the loader's warm-up tour, so its shaders are ready)
-    const inWindow = !reduced && (useExperienceStore.getState().started || dive.override >= 0) && dive.p > WINDOW[0] && dive.p < WINDOW[1]
+    // explore mode: it cruises through the upper twilight zone
+    const inWindow = dive.game
+      ? !reduced && camera.position.y > ZONE_Y[1] + 3 && camera.position.y < ZONE_Y[1] + 17
+      : !reduced && (useExperienceStore.getState().started || dive.override >= 0) && dive.p > WINDOW[0] && dive.p < WINDOW[1]
     const t = clock.elapsedTime
     if (inWindow && state.t0 < 0) {
       // enter from off-screen, crossing the view a little below the lens
@@ -149,7 +152,7 @@ export function Whale() {
       state.fwd.y = Math.max(state.fwd.y, -0.35)
       state.fwd.normalize()
       state.side.crossVectors(state.fwd, THREE.Object3D.DEFAULT_UP).normalize()
-      state.origin.copy(camera.position).addScaledVector(state.fwd, AHEAD)
+      state.origin.copy(camera.position).addScaledVector(state.fwd, dive.game ? 12 : AHEAD)
       state.origin.y -= 2.5
       group.current.rotation.set(0, Math.atan2(-state.side.z, state.side.x), 0)
     }

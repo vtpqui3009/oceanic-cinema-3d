@@ -3,8 +3,10 @@ import { useProgress } from '@react-three/drei'
 import { useLoadingStore } from '../state/useLoadingStore'
 import { useExperienceStore } from '../state/useExperienceStore'
 import { labelForUrl } from '../lib/models'
+import { TOTAL_DISCOVERIES } from '../lib/discoveries'
 import { oceanAudio } from '../audio/OceanAudio'
 import { useSceneStore } from '../state/useSceneStore'
+import type { Mode } from '../state/useExperienceStore'
 
 /**
  * Real progress: drei's network loads (models, textures) + procedural builds
@@ -21,6 +23,7 @@ export function Loader() {
   const start = useExperienceStore((s) => s.start)
   const reduced = useSceneStore((s) => s.reducedMotion)
   const [gone, setGone] = useState(false)
+  const [quiet, setQuiet] = useState(false)
 
   const taskList = Object.values(tasks)
   const done = loaded + taskList.filter(Boolean).length
@@ -35,10 +38,11 @@ export function Loader() {
     return () => clearTimeout(t)
   }, [started])
 
-  const begin = (sound: boolean) => {
+  const begin = (mode: Mode) => {
+    const sound = !quiet
     oceanAudio.reducedMotion = reduced
     if (sound) oceanAudio.start()
-    start(sound)
+    start(sound, mode)
   }
 
   if (gone) return null
@@ -57,12 +61,21 @@ export function Loader() {
         ) : (
           <div className="gate">
             <p className="gate__line">Đeo tai nghe để nghe tiếng đại dương.</p>
-            <button className="btn btn--primary btn--big" onClick={() => begin(true)} autoFocus>
-              Bắt đầu lặn
-            </button>
-            <button className="gate__quiet" onClick={() => begin(false)}>
-              Lặn không âm thanh
-            </button>
+            <div className="gate__modes">
+              <button className="mode mode--film" onClick={() => begin('film')} autoFocus>
+                <span className="mode__title">Bắt đầu lặn</span>
+                <span className="mode__kind">Xem phim tài liệu</span>
+                <span className="mode__sub">Cuộn để lặn qua bốn tầng biển, chạm vào sinh vật để tìm hiểu.</span>
+              </button>
+              <button className="mode mode--game" onClick={() => begin('game')}>
+                <span className="mode__title">Thám hiểm</span>
+                <span className="mode__kind">Nhiếp ảnh gia biển sâu</span>
+                <span className="mode__sub">Tự lái tàu lặn, chụp ảnh {TOTAL_DISCOVERIES} loài, quản lý dưỡng khí và lặn ngày càng sâu.</span>
+              </button>
+            </div>
+            <label className="gate__quiet">
+              <input type="checkbox" checked={quiet} onChange={(e) => setQuiet(e.target.checked)} /> Lặn không âm thanh
+            </label>
           </div>
         )}
       </div>

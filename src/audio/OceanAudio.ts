@@ -291,6 +291,64 @@ export class OceanAudio {
     this.whale(ctx.currentTime + 0.2, 1.6)
   }
 
+  // ---- explore mode ----------------------------------------------------------
+
+  /** Camera shutter: a filtered click, then the shutter curtain. */
+  shutter() {
+    const ctx = this.ctx
+    if (!this.running || !ctx) return
+    const t = ctx.currentTime
+    ;[0, 0.055].forEach((d, i) => {
+      const src = ctx.createBufferSource()
+      src.buffer = this.noise
+      const hp = ctx.createBiquadFilter()
+      hp.type = 'bandpass'
+      hp.frequency.value = i ? 2600 : 4200
+      hp.Q.value = 1.4
+      const g = ctx.createGain()
+      g.gain.setValueAtTime(0.0001, t + d)
+      g.gain.exponentialRampToValueAtTime(i ? 0.16 : 0.22, t + d + 0.003)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.05)
+      src.connect(hp).connect(g).connect(this.sfxBus)
+      src.start(t + d, rand(0, 1))
+      src.stop(t + d + 0.07)
+    })
+  }
+
+  /** Active sonar: a strong ping with a long echo tail. */
+  sonarPing() {
+    const ctx = this.ctx
+    if (!this.running || !ctx) return
+    this.sonar(ctx.currentTime + 0.02, 2.2)
+  }
+
+  /** Two soft falling beeps: oxygen running low. */
+  oxygenLow() {
+    const ctx = this.ctx
+    if (!this.running || !ctx) return
+    const t = ctx.currentTime
+    ;[0, 0.22].forEach((d, i) => {
+      const o = ctx.createOscillator()
+      const g = ctx.createGain()
+      o.type = 'triangle'
+      o.frequency.setValueAtTime(i ? 740 : 880, t + d)
+      g.gain.setValueAtTime(0.0001, t + d)
+      g.gain.exponentialRampToValueAtTime(0.06, t + d + 0.01)
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.18)
+      o.connect(g).connect(this.sfxBus)
+      o.start(t + d)
+      o.stop(t + d + 0.2)
+    })
+  }
+
+  /** The hull complaining about the pressure. */
+  hullCreak() {
+    const ctx = this.ctx
+    if (!this.running || !ctx) return
+    this.creak(ctx.currentTime, 1.6)
+    this.thump(ctx.currentTime + 0.05, 0.3)
+  }
+
   // ---- internals -------------------------------------------------------------
 
   private onVisibility = () => {

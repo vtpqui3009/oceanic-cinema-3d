@@ -17,10 +17,14 @@ import { Interaction } from '../interaction/Interaction'
 import { MainDiscoverables } from '../interaction/MainDiscoverables'
 import { Whale } from '../creatures/ambient/Whale'
 import { useSceneStore } from '../state/useSceneStore'
+import { useExperienceStore } from '../state/useExperienceStore'
+import { PlayerController } from '../game/PlayerController'
+import { BubbleVents } from '../game/BubbleVents'
 
 export function Experience() {
   const quality = useSceneStore((s) => s.quality)
   const setDegraded = useSceneStore((s) => s.setDegraded)
+  const game = useExperienceStore((s) => s.mode === 'game' && s.started)
   // resolution follows the measured frame rate between these bounds
   // everything is post-processed at full screen size, so resolution is the
   // main cost: cap it, start low and let the monitor raise it if there's room
@@ -59,7 +63,8 @@ export function Experience() {
       />
       <Atmosphere />
       <DeepEnvironment />
-      <CameraRig />
+      {/* film: the scroll drives the camera · explore: the player does */}
+      {game ? <PlayerController /> : <CameraRig />}
       <ShallowsScene />
       <TwilightScene />
       <MidnightScene />
@@ -67,6 +72,7 @@ export function Experience() {
       <MarineSnow />
       <Whale />
       <GlowBursts />
+      <BubbleVents />
       <MainDiscoverables />
       <Interaction />
       <PostFX />

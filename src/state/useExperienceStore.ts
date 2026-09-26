@@ -25,9 +25,13 @@ function save(found: DiscoveryId[], sound: boolean) {
   }
 }
 
+export type Mode = 'film' | 'game'
+
 interface ExperienceState {
   /** The viewer pressed "Bắt đầu lặn" (loader gone). */
   started: boolean
+  /** Film: scroll-driven documentary. Game: free-roaming photographer. */
+  mode: Mode
   sound: boolean
   found: DiscoveryId[]
   /** Card currently open. */
@@ -37,7 +41,8 @@ interface ExperienceState {
   ending: boolean
   /** Hovering something discoverable (custom cursor). */
   hover: DiscoveryId | null
-  start: (sound: boolean) => void
+  start: (sound: boolean, mode?: Mode) => void
+  setMode: (mode: Mode) => void
   setSound: (v: boolean) => void
   discover: (id: DiscoveryId) => boolean
   setOpen: (id: DiscoveryId | null) => void
@@ -51,16 +56,18 @@ const initial = load()
 
 export const useExperienceStore = create<ExperienceState>((set, get) => ({
   started: false,
+  mode: 'film',
   sound: initial.sound,
   found: initial.found,
   open: null,
   logbook: false,
   ending: false,
   hover: null,
-  start: (sound) => {
-    set({ started: true, sound })
+  start: (sound, mode = 'film') => {
+    set({ started: true, sound, mode })
     save(get().found, sound)
   },
+  setMode: (mode) => set({ mode, open: null, logbook: false, hover: null, ending: false }),
   setSound: (sound) => {
     set({ sound })
     save(get().found, sound)
