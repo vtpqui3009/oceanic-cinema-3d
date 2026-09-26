@@ -214,6 +214,23 @@ hậu kỳ và cơ chế ẩn vùng xa vì thế chạy nguyên như cũ.
 - **Chỉ vùng đang đứng được render.** Trong một vùng, `stageF` luôn là số
   nguyên, nên vùng kế bên không bao giờ "hé" ra.
 
+Đo A/B trên cùng harness (SwiftShader render bằng CPU, 960×540, cùng thời gian
+chờ; số tuyệt đối chậm hơn GPU thật rất nhiều, chỉ dùng để so sánh). Mỗi ô là
+ms/khung, càng thấp càng tốt. Cảnh phim là khung chính của từng vùng; cảnh game
+là tàu lặn đứng cách sinh vật chính khoảng 6 m và nhìn thẳng vào nó.
+
+| Vùng | Phim | Thám hiểm |
+| --- | --- | --- |
+| I · Nước cạn | 605–674 | 671 |
+| II · Chạng vạng | 362–385 | 516–577 |
+| III · Nửa tối | 460 | 295 |
+| IV · Vực thẳm | 406 | 372 |
+
+Ở vùng II, góc nhìn ngang của tàu lặn thấy đáy biển chiếm nửa màn hình (ẩn
+đáy đi thì còn 283 ms). Dù vậy nó vẫn nhẹ hơn cảnh nặng nhất của bản phim, nên
+chế độ game không tạo ra khung hình nào nặng hơn những gì phim đã có. Cảnh game
+vẽ ít hơn cảnh phim: 85 so với 123 lệnh vẽ, 272k so với 403k tam giác.
+
 ## Dàn diễn viên phụ (GPU-animated)
 
 Mỗi cảnh có thêm sinh vật nền. Toàn bộ chuyển động của chúng là hàm của
