@@ -5,6 +5,8 @@ import { bioLights } from '../lib/bioluminescence'
 import { createRng } from '../lib/noise'
 import { useSceneStore } from '../state/useSceneStore'
 import { liveAtmosphere } from './Atmosphere'
+import { DIVER_GLSL, diverUniforms } from '../interaction/diverLight'
+import { dive } from '../lib/dive'
 
 const MAX_LIGHTS = 4
 const EXTENT = new THREE.Vector3(16, 10, 16)
@@ -50,6 +52,8 @@ export function MarineSnow({ tint = '#9cc3d2' }: { tint?: THREE.ColorRepresentat
         uLightColor: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Color()) },
         uLightCount: { value: 0 },
         uFogDensity: { value: 0.1 },
+        uBubbles: { value: 1 },
+        ...diverUniforms,
       },
       vertexShader: /* glsl */ `
         attribute float seed;
@@ -59,18 +63,25 @@ export function MarineSnow({ tint = '#9cc3d2' }: { tint?: THREE.ColorRepresentat
         uniform vec3 uLightColor[${MAX_LIGHTS}];
         uniform int uLightCount;
         uniform vec3 uTint;
+        uniform float uBubbles;
+        ${DIVER_GLSL}
         varying vec3 vColor;
         varying float vDepth;
         varying float vTwinkle;
         void main() {
           float s = seed * 6.2831;
           vec3 p = position;
-          p.y -= uTime * (0.03 + seed * 0.05);
+          // near the surface ~7% of the motes are rising air bubbles instead
+          float bub = step(seed, 0.07) * uBubbles;
+          p.y += mix(-uTime * (0.03 + seed * 0.05), uTime * (0.5 + seed * 6.0), bub);
+          p.x += bub * sin(uTime * 3.0 + s * 9.0) * 0.05;
           p.x += sin(uTime * 0.13 + s) * 0.35 + sin(uTime * 0.41 + s * 3.0) * 0.06;
           p.z += cos(uTime * 0.11 + s * 1.7) * 0.35;
           // wrap the box around the camera
           vec3 world = mod(p - uCam + uExtent * 0.5, uExtent) - uExtent * 0.5 + uCam;
-          vec3 glow = vec3(0.0);
+          // the diver's torch lights the motes and gently parts them
+          world += diverPush(world, 0.9, 0.35);
+          vec3 glow = vec3(0.55, 0.85, 1.0) * diverFalloff(world, 0.7) * 1.3 + vec3(0.6, 0.8, 0.9) * bub * 0.5;
           for (int i = 0; i < ${MAX_LIGHTS}; i++) {
             if (i >= uLightCount) break;
             float d = distance(world, uLightPos[i]);
@@ -160,6 +171,7 @@ export function MarineSnow({ tint = '#9cc3d2' }: { tint?: THREE.ColorRepresentat
     u.uPixelRatio.value = gl.getPixelRatio()
     u.uAmbient.value = liveAtmosphere.snow
     u.uFogDensity.value = liveAtmosphere.density
+    u.uBubbles.value = Math.max(0, 1 - dive.stageF * 1.6)
     let i = 0
     for (const l of bioLights) {
       if (i >= MAX_LIGHTS) break

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { mergeGeometries, mergeVertices } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { createRng } from './noise'
+import { DIVER_GLSL, diverUniforms } from '../interaction/diverLight'
 
 /**
  * GPU-driven crowds. Every instance's path, heading, tail beat or pulse is a
@@ -32,6 +33,8 @@ export interface SwarmPatch {
   orient?: string
   /** Edit the local-space vertex `lp` (tail wag, pulse…) before placement. */
   local?: string
+  /** After placement: edit `transformed` (object space) — e.g. part around the diver's torch. */
+  place?: string
   /** Fragment injections for lit materials: declarations and code after emissivemap. */
   fragHead?: string
   fragEmissive?: string
@@ -52,9 +55,10 @@ export function patchSwarmMaterial<T extends THREE.Material>(material: T, p: Swa
     }`
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uTime = uTime
+    Object.assign(shader.uniforms, diverUniforms)
     Object.assign(shader.uniforms, p.uniforms ?? {})
     shader.vertexShader = shader.vertexShader
-      .replace('#include <common>', `#include <common>\n${SWARM_COMMON}\n${p.head ?? ''}\n${frame}`)
+      .replace('#include <common>', `#include <common>\n${SWARM_COMMON}\n${DIVER_GLSL}\n${p.head ?? ''}\n${frame}`)
       // evaluate the path once per vertex and share it between the normal and
       // position stages (depth/distance shaders have no normal stage)
       .replace(
@@ -71,6 +75,7 @@ export function patchSwarmMaterial<T extends THREE.Material>(material: T, p: Swa
           vec3 lp = transformed * aMotion.z;
           ${p.local ?? ''}
           transformed = swM * lp + swP;
+          ${p.place ?? ''}
         }`,
       )
     if (p.fragHead) shader.fragmentShader = shader.fragmentShader.replace('#include <common>', `#include <common>\n${p.fragHead}`)

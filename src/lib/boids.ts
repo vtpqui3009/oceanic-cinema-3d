@@ -69,7 +69,14 @@ function limit(v: THREE.Vector3, max: number) {
  * wandering goal the whole school drifts towards, and soft walls: the
  * surface, the sand and a sphere around the scene.
  */
-export function stepFlock(boids: Boid[], goal: THREE.Vector3, p: FlockParams, dt: number) {
+/** A threat to flee from (the diver's torch), in the flock's space. */
+export interface Avoid {
+  pos: THREE.Vector3
+  strength: number
+  radius: number
+}
+
+export function stepFlock(boids: Boid[], goal: THREE.Vector3, p: FlockParams, dt: number, avoid?: Avoid) {
   const per2 = p.perception * p.perception
   const sep2 = p.separation * p.separation
   for (const b of boids) {
@@ -102,6 +109,13 @@ export function stepFlock(boids: Boid[], goal: THREE.Vector3, p: FlockParams, dt
     }
     steer.subVectors(goal, b.pos).setLength(want).sub(b.vel)
     acc.addScaledVector(limit(steer, p.maxForce), p.weights.goal)
+
+    // flee the torch: strong and short-ranged, so the school splits and reforms
+    if (avoid && avoid.strength > 0.01) {
+      d.subVectors(b.pos, avoid.pos)
+      const l = d.length()
+      if (l < avoid.radius) acc.addScaledVector(d.divideScalar(Math.max(l, 1e-3)), (1 - l / avoid.radius) * avoid.strength * 9)
+    }
 
     // soft walls
     d.subVectors(b.pos, p.center)

@@ -5,3 +5,9 @@ declare module 'virtual:model-manifest' {
   const files: string[]
   export default files
 }
+
+declare module 'virtual:audio-manifest' {
+  /** Audio files present in /public/audio at build/dev time. */
+  const files: string[]
+  export default files
+}

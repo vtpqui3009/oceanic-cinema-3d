@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { taperedTube } from '../../lib/geometry'
+import { DIVER_GLSL, diverUniforms } from '../../interaction/diverLight'
 import { GLOW_FOG, SWARM_COMMON, makeSwarmMesh } from '../../lib/gpuSwarm'
 import { useSceneStore } from '../../state/useSceneStore'
 import { useSwarmClock } from './useSwarmClock'
+import { useDiscoverable } from '../../interaction/discoverables'
 
 /**
  * Small glowing jellies drifting in the twilight around the crown jelly.
@@ -59,9 +61,11 @@ export function DriftJellies({ count: wanted = 18, radius = [6, 14] as [number, 
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
-      uniforms: { uTime, uFogDensity },
+      uniforms: { uTime, uFogDensity, ...diverUniforms },
       vertexShader: /* glsl */ `
         ${SWARM_COMMON}
+        ${DIVER_GLSL}
+        varying float vTorch;
         attribute float aSway;
         attribute vec3 aColor;
         varying vec3 vN;
@@ -89,6 +93,8 @@ export function DriftJellies({ count: wanted = 18, radius = [6, 14] as [number, 
           float tilt = sin(uTime * 0.2 + aMotion.w * 9.0) * 0.25;
           mat3 R = mat3(cos(tilt), sin(tilt), 0.0, -sin(tilt), cos(tilt), 0.0, 0.0, 0.0, 1.0);
           vec4 world = modelMatrix * vec4(R * lp + P, 1.0);
+          world.xyz += diverPush(world.xyz, 0.3, 0.7); // drift away from the torch
+          vTorch = diverFalloff(world.xyz, 0.25);
           vN = normalize(mat3(modelMatrix) * (R * normal));
           vView = cameraPosition - world.xyz;
           vDist = length(vView);
@@ -98,6 +104,7 @@ export function DriftJellies({ count: wanted = 18, radius = [6, 14] as [number, 
         }`,
       fragmentShader: /* glsl */ `
         ${GLOW_FOG}
+        varying float vTorch;
         varying vec3 vN;
         varying vec3 vView;
         varying float vSway;
@@ -106,7 +113,7 @@ export function DriftJellies({ count: wanted = 18, radius = [6, 14] as [number, 
         void main() {
           float fres = pow(1.0 - abs(dot(normalize(vN), normalize(vView))), 2.2);
           float body = mix(0.12 + fres * 1.4, 0.55 * (1.0 - vSway), step(0.001, vSway));
-          gl_FragColor = vec4(vColor * body * glowFog(vDist), 1.0);
+          gl_FragColor = vec4(vColor * body * (1.0 + vTorch * 1.8) * glowFog(vDist), 1.0);
         }`,
     })
     const m = makeSwarmMesh(jellyGeometry(), material, count, (_, o, mo, rng) => {
@@ -131,6 +138,32 @@ export function DriftJellies({ count: wanted = 18, radius = [6, 14] as [number, 
     m.geometry.setAttribute('aColor', new THREE.InstancedBufferAttribute(colors, 3))
     return m
   }, [count, radius, uTime, uFogDensity])
+
+  // CPU mirror of the shader's drift, evaluated only on pointer events
+  const p = useMemo(() => new THREE.Vector3(), [])
+  useDiscoverable(
+    'driftjelly',
+    useMemo(
+      () => ({
+        zone: 1,
+        sample: (emit: (c: THREE.Vector3, r: number) => void) => {
+          const o = (mesh.geometry.attributes.aOrbit as THREE.InstancedBufferAttribute).array
+          const m = (mesh.geometry.attributes.aMotion as THREE.InstancedBufferAttribute).array
+          const t = uTime.value
+          for (let i = 0; i < mesh.count; i++) {
+            const w = m[i * 4 + 3]
+            p.set(
+              o[i * 4] + Math.sin(t * 0.05 + w * 30) * 0.8,
+              o[i * 4 + 1] + Math.sin(t * 0.11 + w * 17) * 0.5 - 0.15 * m[i * 4 + 2],
+              o[i * 4 + 2] + Math.cos(t * 0.04 + w * 11) * 0.8,
+            )
+            emit(mesh.localToWorld(p), 0.45 * m[i * 4 + 2])
+          }
+        },
+      }),
+      [mesh, p, uTime],
+    ),
+  )
 
   return <primitive object={mesh} />
 }

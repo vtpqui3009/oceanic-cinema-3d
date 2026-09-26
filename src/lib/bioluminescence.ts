@@ -21,3 +21,14 @@ export interface BioLightEntry {
 
 /** Registry of live bioluminescent emitters; particles read it to glow nearby. */
 export const bioLights = new Set<BioLightEntry>()
+
+/**
+ * Logbook complete: every emitter flares together for a few seconds.
+ * Returns a multiplier (1 = normal) read by BioLight each frame.
+ */
+export const celebration = { start: -100 }
+export function celebrationBoost(now: number) {
+  const age = now - celebration.start
+  if (age < 0 || age > 4) return 1
+  return 1 + 2.2 * Math.sin((age / 4) * Math.PI) * (0.75 + 0.25 * Math.sin(age * 14))
+}

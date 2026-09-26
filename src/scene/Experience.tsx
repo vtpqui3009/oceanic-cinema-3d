@@ -12,6 +12,10 @@ import { MidnightScene } from '../scenes/MidnightScene'
 import { AbyssScene } from '../scenes/AbyssScene'
 import { PostFX } from './PostFX'
 import { ShaderPrewarm } from './ShaderPrewarm'
+import { GlowBursts } from './GlowBursts'
+import { Interaction } from '../interaction/Interaction'
+import { MainDiscoverables } from '../interaction/MainDiscoverables'
+import { Whale } from '../creatures/ambient/Whale'
 import { useSceneStore } from '../state/useSceneStore'
 
 export function Experience() {
@@ -61,6 +65,10 @@ export function Experience() {
       <MidnightScene />
       <AbyssScene />
       <MarineSnow />
+      <Whale />
+      <GlowBursts />
+      <MainDiscoverables />
+      <Interaction />
       <PostFX />
       <ShaderPrewarm />
     </Canvas>

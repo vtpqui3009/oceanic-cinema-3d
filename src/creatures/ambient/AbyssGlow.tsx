@@ -2,9 +2,11 @@ import { useMemo } from 'react'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { taperedTube } from '../../lib/geometry'
+import { DIVER_GLSL, diverUniforms } from '../../interaction/diverLight'
 import { GLOW_FOG, SWARM_COMMON, makeSwarmMesh } from '../../lib/gpuSwarm'
 import { useSceneStore } from '../../state/useSceneStore'
 import { useSwarmClock } from './useSwarmClock'
+import { useDiscoverable } from '../../interaction/discoverables'
 
 const glowMaterial = (vertex: string, fragment: string, uniforms: Record<string, THREE.IUniform>) =>
   new THREE.ShaderMaterial({
@@ -35,6 +37,8 @@ export function CombJellies({ count: wanted = 7 }) {
     const material = glowMaterial(
       /* glsl */ `
         ${SWARM_COMMON}
+        ${DIVER_GLSL}
+        varying float vTorch;
         varying vec2 vUv;
         varying vec3 vN;
         varying vec3 vView;
@@ -44,6 +48,8 @@ export function CombJellies({ count: wanted = 7 }) {
           mat3 R = mat3(cos(spin), 0.0, -sin(spin), 0.0, 1.0, 0.0, sin(spin), 0.0, cos(spin));
           vec3 P = aOrbit.xyz + vec3(sin(uTime * 0.07 + aMotion.w * 20.0) * 0.7, sin(uTime * 0.19 + aMotion.w * 9.0) * 0.35, cos(uTime * 0.06 + aMotion.w * 13.0) * 0.7);
           vec4 world = modelMatrix * vec4(R * (position * aMotion.z) + P, 1.0);
+          world.xyz += diverPush(world.xyz, 0.3, 0.5);
+          vTorch = diverFalloff(world.xyz, 0.25);
           vUv = uv;
           vN = normalize(mat3(modelMatrix) * (R * normal));
           vView = cameraPosition - world.xyz;
@@ -52,6 +58,7 @@ export function CombJellies({ count: wanted = 7 }) {
         }`,
       /* glsl */ `
         ${GLOW_FOG}
+        varying float vTorch;
         uniform float uTime;
         varying vec2 vUv;
         varying vec3 vN;
@@ -64,9 +71,9 @@ export function CombJellies({ count: wanted = 7 }) {
           float beat = 0.35 + 0.65 * pow(0.5 + 0.5 * sin(vUv.y * 46.0 - uTime * 9.0), 3.0);
           vec3 comb = rainbow(fract(vUv.y * 1.6 - uTime * 0.35 + vUv.x * 2.0)) * rows * beat * 2.2;
           vec3 glow = vec3(0.25, 0.55, 1.0) * (0.05 + fres * 0.6);
-          gl_FragColor = vec4((comb + glow) * glowFog(vDist), 1.0);
+          gl_FragColor = vec4((comb + glow) * (1.0 + vTorch * 1.6) * glowFog(vDist), 1.0);
         }`,
-      { uTime, uFogDensity },
+      { uTime, uFogDensity, ...diverUniforms },
     )
     return makeSwarmMesh(body, material, count, (i, o, m, rng) => {
       // a loose ring behind and around the anglerfish, never in the lens
@@ -79,6 +86,27 @@ export function CombJellies({ count: wanted = 7 }) {
       m[3] = rng()
     }, 31)
   }, [count, uTime, uFogDensity])
+
+  const p = useMemo(() => new THREE.Vector3(), [])
+  useDiscoverable(
+    'combjelly',
+    useMemo(
+      () => ({
+        zone: 3,
+        sample: (emit: (c: THREE.Vector3, r: number) => void) => {
+          const o = (mesh.geometry.attributes.aOrbit as THREE.InstancedBufferAttribute).array
+          const m = (mesh.geometry.attributes.aMotion as THREE.InstancedBufferAttribute).array
+          const t = uTime.value
+          for (let i = 0; i < mesh.count; i++) {
+            const w = m[i * 4 + 3]
+            p.set(o[i * 4] + Math.sin(t * 0.07 + w * 20) * 0.7, o[i * 4 + 1] + Math.sin(t * 0.19 + w * 9) * 0.35, o[i * 4 + 2] + Math.cos(t * 0.06 + w * 13) * 0.7)
+            emit(mesh.localToWorld(p), 0.3 * m[i * 4 + 2])
+          }
+        },
+      }),
+      [mesh, p, uTime],
+    ),
+  )
 
   return <primitive object={mesh} />
 }
@@ -129,6 +157,8 @@ export function SeaPens({ clearings = [] as [number, number, number][] }) {
     const material = glowMaterial(
       /* glsl */ `
         ${SWARM_COMMON}
+        ${DIVER_GLSL}
+        varying float vTorch;
         attribute float aH;
         varying float vH;
         varying float vSeed;
@@ -141,6 +171,7 @@ export function SeaPens({ clearings = [] as [number, number, number][] }) {
           float yaw = aMotion.w * 6.28;
           lp.xz = mat2(cos(yaw), -sin(yaw), sin(yaw), cos(yaw)) * lp.xz;
           vec4 world = modelMatrix * vec4(lp + aOrbit.xyz, 1.0);
+          vTorch = diverFalloff(world.xyz, 0.3);
           vH = aH;
           vSeed = aMotion.w;
           vDist = distance(world.xyz, cameraPosition);
@@ -148,6 +179,7 @@ export function SeaPens({ clearings = [] as [number, number, number][] }) {
         }`,
       /* glsl */ `
         ${GLOW_FOG}
+        varying float vTorch;
         uniform float uTime;
         varying float vH;
         varying float vSeed;
@@ -156,11 +188,11 @@ export function SeaPens({ clearings = [] as [number, number, number][] }) {
           // polyps flash in waves running up the colony, every few seconds
           float wave = pow(0.5 + 0.5 * sin(vH * 11.0 - uTime * 2.4 + vSeed * 40.0), 7.0);
           float burst = smoothstep(0.7, 1.0, sin(uTime * 0.35 + vSeed * 20.0));
-          float glow = 0.03 + wave * (0.12 + burst * 0.55);
+          float glow = 0.03 + wave * (0.12 + max(burst, vTorch) * 0.55) + vTorch * 0.25;
           vec3 col = mix(vec3(0.15, 0.9, 0.75), vec3(0.4, 0.7, 1.0), vH);
           gl_FragColor = vec4(col * glow * glowFog(vDist), 1.0);
         }`,
-      { uTime, uFogDensity },
+      { uTime, uFogDensity, ...diverUniforms },
     )
     return makeSwarmMesh(seaPenGeometry(), material, count, (_, o, m, rng) => {
       let x = 0, z = 0
@@ -178,6 +210,25 @@ export function SeaPens({ clearings = [] as [number, number, number][] }) {
       m[3] = rng()
     }, 64)
   }, [count, uTime, uFogDensity, clearings])
+
+  const p = useMemo(() => new THREE.Vector3(), [])
+  useDiscoverable(
+    'seapen',
+    useMemo(
+      () => ({
+        zone: 3,
+        sample: (emit: (c: THREE.Vector3, r: number) => void) => {
+          const o = (mesh.geometry.attributes.aOrbit as THREE.InstancedBufferAttribute).array
+          const m = (mesh.geometry.attributes.aMotion as THREE.InstancedBufferAttribute).array
+          for (let i = 0; i < mesh.count; i++) {
+            p.set(o[i * 4], o[i * 4 + 1] + 0.45 * m[i * 4 + 2], o[i * 4 + 2])
+            emit(mesh.localToWorld(p), 0.4 * m[i * 4 + 2])
+          }
+        },
+      }),
+      [mesh, p],
+    ),
+  )
 
   return <primitive object={mesh} />
 }

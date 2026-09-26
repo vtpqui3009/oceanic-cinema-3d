@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
-import { bioLights, bioPulse, type BioLightEntry } from '../lib/bioluminescence'
+import { bioLights, bioPulse, celebrationBoost, type BioLightEntry } from '../lib/bioluminescence'
 import { useSceneStore } from '../state/useSceneStore'
 import { currentLightWeight, useZoneIndex } from './Zone'
 
@@ -43,7 +43,7 @@ export function BioLight({ color, intensity, distance = 8, castShadow = true, se
   useFrame(({ clock }) => {
     // reduced motion: a much slower, shallower breath
     const t = reduced ? clock.elapsedTime * 0.25 : clock.elapsedTime
-    const p = (reduced ? 0.95 + (bioPulse(t, seed) - 0.9) * 0.3 : bioPulse(t, seed)) * (modulate?.() ?? 1)
+    const p = (reduced ? 0.95 + (bioPulse(t, seed) - 0.9) * 0.3 : bioPulse(t, seed)) * (modulate?.() ?? 1) * celebrationBoost(performance.now() / 1000)
     const w = currentLightWeight(zone)
     light.current.intensity = intensity * p * w
     // cube shadow maps are six renders each: refresh them at half rate

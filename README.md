@@ -90,6 +90,58 @@ bám theo trọng tâm đàn cá / chuông sứa trong lúc dừng ở cảnh đ
 `prefers-reduced-motion`: đàn cá giữ đội hình tĩnh (không chạy boids), sứa
 và mực đứng yên ở tư thế đẹp, cá câu không đớp mồi, đèn chỉ thở rất chậm.
 
+## Khám phá, tương tác và âm nhạc
+
+Mục tiêu: khiến người xem muốn ở lại và tự khám phá. **Nhật ký lặn** ghi lại
+11 loài đã gặp (lưu trong trình duyệt), mỗi loài có thẻ với 2 sự thật đã
+kiểm chứng.
+
+| Tương tác | Cách hoạt động | Chi phí hiệu năng |
+| --- | --- | --- |
+| **Bắt đầu lặn** | Tải xong hiện nút; cú bấm đó bật luôn nhạc (quy định autoplay của trình duyệt). Có lựa chọn "Lặn không âm thanh" | — |
+| **Chạm/bấm vào sinh vật** | Mở thẻ thông tin, loài mới được ghi vào nhật ký kèm tiếng chuông; vòng sáng gợi ý đánh dấu loài chưa gặp trong vùng đang xem | Không raycast: mỗi sinh vật đăng ký hình cầu bao (`interaction/discoverables.ts`), chỉ chiếu ~10 điểm khi có sự kiện con trỏ |
+| **Chạm vào nước** | Một đám phù du phát quang bung ra (bong bóng bạc ở vùng nước cạn) kèm tiếng lấp lánh, rung nhẹ trên điện thoại | Pool cố định 8 × 140 hạt, 1 draw call; mỗi lần chạm chỉ ghi uniform (`scene/GlowBursts.tsx`) |
+| **Đèn pin thợ lặn** | Con trỏ chuột là một luồng sáng: tuyết biển và sứa sáng lên, bị đẩy dạt ra; đàn cá mồi và cá đèn tách ra; đàn cá chẽm (boids) né tránh | Không phải đèn three.js: 2 uniform dùng chung cho các shader tự viết (`interaction/diverLight.ts`) |
+| **Cá voi lưng gù (loài bí mật)** | Giữa vùng nắng và vùng chạng vạng, một con cá voi bơi ngang qua tầm nhìn và cất tiếng hát | Chỉ tồn tại trong đoạn đó; bơi bằng vertex shader |
+| **Điều hướng chương** | Các chấm trên thước độ sâu: bấm để lặn thẳng tới vùng | — |
+| **Chỉ số sống** | Áp suất, nhiệt độ, % ánh nắng còn lại theo độ sâu | Chỉ đổi `textContent` khi độ sâu đổi |
+| **Kết thúc** | Ở đáy: tổng kết số loài đã gặp, nút "Lặn lại từ đầu" và "Mở nhật ký lặn"; gặp đủ 11/11 thì mọi nguồn phát quang cùng loé sáng | — |
+
+### Âm nhạc tạo bằng code (`audio/OceanAudio.ts`)
+
+Web Audio tự sinh nhạc ambient, **0 KB tải về**, đổi theo độ sâu:
+
+- **Nước cạn:** pad sáng (thang Lydian), chuông thuỷ tinh theo âm giai ngũ cung, tiếng sóng.
+- **Chạng vạng:** pad lơ lửng, tiếng cá voi xa xăm (sóng răng cưa trượt cao độ qua bộ lọc formant).
+- **Nửa tối:** pad thứ, tiếng ping sonar có vọng.
+- **Vực thẳm:** drone trầm, nhịp tim chậm, tiếng kẽo kẹt hiếm hoi.
+- Âm vang dùng một impulse tạo một lần; hợp âm đổi mỗi 16 giây.
+- Hiệu ứng âm thanh riêng cho: khám phá, phát quang, bong bóng khi lặn nhanh, mở/đóng thẻ, hoàn thành nhật ký.
+
+Hiệu năng: mọi thứ chạy trên luồng audio riêng. Luồng chính chỉ lên lịch vài
+nốt mỗi 200 ms và cập nhật độ sâu 10 lần/giây. Âm thanh tự tạm dừng khi tab ẩn
+hoặc khi tắt tiếng.
+
+Muốn dùng nhạc của riêng bạn: thả `ambient.mp3` hoặc `zone-0.mp3` … `zone-3.mp3`
+vào `public/audio/` (xem README trong đó).
+
+### Đo hiệu năng
+
+Harness Playwright + SwiftShader (render bằng CPU, nhiễu ±10–15 %), cùng máy,
+cùng thời gian chờ, rê chuột liên tục trong lúc đo. Thời gian mỗi khung (ms),
+trước và sau khi thêm lớp khám phá:
+
+| Cảnh | Trước | Sau |
+| --- | --- | --- |
+| I · Nước cạn | 762 | 808 |
+| II · Chạng vạng | 589 | 583 |
+| III · Nửa tối | 735 | 643 |
+| IV · Vực thẳm | 622 | 608 |
+
+Chênh lệch nằm trong biên nhiễu. Chú ý: không dùng `backdrop-filter` trên UI luôn
+hiển thị (nó phải làm mờ lại canvas mỗi khung); thẻ và nhật ký chỉ bật blur
+khi đang mở.
+
 ## Dàn diễn viên phụ (GPU-animated)
 
 Mỗi cảnh có thêm sinh vật nền. Toàn bộ chuyển động của chúng là hàm của
@@ -100,6 +152,7 @@ chỉ ghi đúng một uniform `uTime`.
 | Cảnh | Loài | Số lượng (desktop / di động) | Chuyển động |
 | --- | --- | --- | --- |
 | I | Đàn cá mồi (bait ball) | 180 / 70 | Xoáy thành cột, con trong bơi nhanh hơn con ngoài, quẫy đuôi, lấp lánh ánh kim |
+| I | Cá voi lưng gù (bí mật) | 1 | Bơi ngang qua tầm nhìn giữa vùng I và II, vây ngực dài uốn chậm |
 | I | Cá đuối manta | 1 | Lượn vòng trên cao, cánh vỗ thành sóng từ thân ra mép (vertex shader) |
 | II | Sứa nhỏ phát quang | 18 / 8 | Mỗi con co bóp theo nhịp riêng, xúc tu trôi theo sau, rìa chuông sáng (Fresnel) |
 | III | Cá đèn (lanternfish) | 120 / 45 | Bơi thành đàn theo vệt của con đầu đàn, hàng photophore dưới bụng phát sáng |

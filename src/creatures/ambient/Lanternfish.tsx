@@ -3,6 +3,7 @@ import * as THREE from 'three'
 import { makeSwarmMesh, patchSwarmMaterial, smallFishGeometry } from '../../lib/gpuSwarm'
 import { useSceneStore } from '../../state/useSceneStore'
 import { useSwarmClock } from './useSwarmClock'
+import { useDiscoverable } from '../../interaction/discoverables'
 
 /**
  * Lanternfish — the most numerous vertebrates on Earth — cruising through
@@ -26,6 +27,10 @@ export function Lanternfish({ position = [1.5, 0.2, -9] as [number, number, numb
           vec3 lead = vec3(sin(tt * 0.13) * 5.5, sin(tt * 0.29) * 0.9, sin(tt * 0.1 + 1.0) * 5.0);
           vec3 wobble = vec3(sin(t * 1.3 + aMotion.w * 40.0), sin(t * 0.9 + aMotion.w * 17.0) * 0.6, cos(t * 1.1 + aMotion.w * 23.0)) * 0.12;
           return aOrbit.xyz + lead + wobble;`,
+        // scatter around the diver's torch (world push → object space)
+        place: /* glsl */ `
+          vec3 swW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          transformed += transpose(mat3(modelMatrix)) * diverPush(swW, 0.3, 0.9);`,
         local: /* glsl */ `
           vLocal = lp / aMotion.z;
           float tailW = smoothstep(0.2, -0.55, vLocal.z);
@@ -50,6 +55,24 @@ export function Lanternfish({ position = [1.5, 0.2, -9] as [number, number, numb
       m[3] = rng()
     }, 93)
   }, [count, uTime])
+
+  // the school's centre = the leader's path (same formula as the shader)
+  const c = useMemo(() => new THREE.Vector3(), [])
+  useDiscoverable(
+    'lanternfish',
+    useMemo(
+      () => ({
+        zone: 2,
+        sample: (emit: (p: THREE.Vector3, r: number) => void) => {
+          const tt = uTime.value - 0.8
+          c.set(position[0] + Math.sin(tt * 0.13) * 5.5, position[1] + Math.sin(tt * 0.29) * 0.9, position[2] + Math.sin(tt * 0.1 + 1) * 5)
+          mesh.parent?.localToWorld(c)
+          emit(c, 2)
+        },
+      }),
+      [c, mesh, position, uTime],
+    ),
+  )
 
   return <primitive object={mesh} position={position} />
 }

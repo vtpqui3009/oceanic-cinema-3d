@@ -5,6 +5,7 @@ import * as THREE from 'three'
 import { makeSwarmMesh, patchSwarmMaterial, smallFishGeometry } from '../../lib/gpuSwarm'
 import { useSceneStore } from '../../state/useSceneStore'
 import { useSwarmClock } from './useSwarmClock'
+import { useDiscoverable } from '../../interaction/discoverables'
 
 /**
  * A bait ball: hundreds of silversides milling in a rotating column, inner
@@ -16,6 +17,7 @@ export function BaitBall({ position = [-7, 1.2, -8] as [number, number, number] 
   const count = quality === 'high' ? 180 : 70
   const { uTime } = useSwarmClock()
   const group = useRef<THREE.Group>(null!)
+  const center = useMemo(() => new THREE.Vector3(), [])
 
   const mesh = useMemo(() => {
     const material = patchSwarmMaterial(
@@ -27,6 +29,10 @@ export function BaitBall({ position = [-7, 1.2, -8] as [number, number, number] 
           float h = (aMotion.w - 0.5) * 2.6 + sin(th * 2.0 + aMotion.w * 20.0) * 0.22;
           float r = aOrbit.w * (1.0 - 0.35 * abs(aMotion.w - 0.5)); // rounder at the poles
           return aOrbit.xyz + vec3(cos(th) * r, h, sin(th) * r);`,
+        // scatter around the diver's torch (world push → object space)
+        place: /* glsl */ `
+          vec3 swW = (modelMatrix * vec4(transformed, 1.0)).xyz;
+          transformed += transpose(mat3(modelMatrix)) * diverPush(swW, 0.35, 1.1);`,
         // a quick, shallow tail beat; stiff head
         local: /* glsl */ `
           float tailW = smoothstep(0.2, -0.55, lp.z / max(aMotion.z, 1e-3));
@@ -46,6 +52,11 @@ export function BaitBall({ position = [-7, 1.2, -8] as [number, number, number] 
       m[3] = rng()
     }, 51)
   }, [count, uTime])
+
+  useDiscoverable(
+    'baitball',
+    useMemo(() => ({ zone: 0, sample: (emit) => emit(group.current.getWorldPosition(center), 1.8) }), [center]),
+  )
 
   // the whole ball drifts slowly (one transform per frame)
   const zone = useZoneIndex()

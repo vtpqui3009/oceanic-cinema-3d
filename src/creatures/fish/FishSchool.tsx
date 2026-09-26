@@ -3,7 +3,8 @@ import { useZoneIndex, zoneVisible } from '../../scene/Zone'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import defaultFishUrl from '../../assets/barramundi.glb?url'
-import { DEFAULT_FLOCK, createFlock, stepFlock, type FlockParams } from '../../lib/boids'
+import { DEFAULT_FLOCK, createFlock, stepFlock, type Avoid, type FlockParams } from '../../lib/boids'
+import { diverUniforms } from '../../interaction/diverLight'
 import { deform } from '../../lib/deform'
 import { damp } from '../../lib/smooth'
 import { subjects } from '../../lib/dive'
@@ -95,6 +96,7 @@ function School({ center = [0, 0, 0] }: Props) {
   const c = useMemo(() => new THREE.Vector3(...center), [center])
   const flock = useMemo(() => createFlock(count, c), [count, c])
   const params = useMemo<FlockParams>(() => ({ ...DEFAULT_FLOCK, center: c }), [c])
+  const avoid = useMemo<Avoid>(() => ({ pos: new THREE.Vector3(), strength: 0, radius: 2.4 }), [])
   const tmp = useMemo(
     () => ({
       goal: new THREE.Vector3(), m: new THREE.Matrix4(), q: new THREE.Quaternion(), roll: new THREE.Quaternion(),
@@ -142,7 +144,10 @@ function School({ center = [0, 0, 0] }: Props) {
     tmp.goal.set(c.x + Math.sin(t * 0.11) * 2.4, c.y + Math.sin(t * 0.23) * 0.9, c.z + Math.sin(t * 0.17 + 1) * 1.8)
     const dt = Math.min(delta, 1 / 20)
     flock.forEach((b) => b.prev.copy(b.vel))
-    stepFlock(flock, tmp.goal, params, dt)
+    // the diver's torch, brought into the school's (zone-local) space
+    avoid.strength = diverUniforms.uDiverStrength.value
+    if (avoid.strength > 0.01) mesh.current.worldToLocal(avoid.pos.copy(diverUniforms.uDiverPos.value))
+    stepFlock(flock, tmp.goal, params, dt, avoid)
     flock.forEach((b) => {
       // bank into turns: roll ∝ signed yaw rate
       const turn = Math.atan2(b.prev.x * b.vel.z - b.prev.z * b.vel.x, b.prev.x * b.vel.x + b.prev.z * b.vel.z) / Math.max(dt, 1e-3)

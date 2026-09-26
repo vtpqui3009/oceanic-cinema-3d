@@ -6,6 +6,7 @@ import { deform } from '../../lib/deform'
 import { taperedTube } from '../../lib/geometry'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { useSceneStore } from '../../state/useSceneStore'
+import { useDiscoverable } from '../../interaction/discoverables'
 
 /**
  * A manta ray gliding a wide circle high above the school, its silhouette
@@ -87,7 +88,8 @@ export function MantaRay({ center = [0, 5.2, -3] as [number, number, number], ra
     })
   }, [material, uTime])
 
-  const tmp = useMemo(() => ({ ahead: new THREE.Vector3() }), [])
+  const tmp = useMemo(() => ({ ahead: new THREE.Vector3(), c: new THREE.Vector3() }), [])
+  useDiscoverable('manta', useMemo(() => ({ zone: 0, sample: (emit) => emit(group.current.getWorldPosition(tmp.c), 2.6) }), [tmp]))
   const zone = useZoneIndex()
   useFrame(({ clock }) => {
     if (!zoneVisible(zone)) return // off screen: no simulation cost
