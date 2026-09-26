@@ -1734,3 +1734,9 @@ kbd {
 .logbook--album .entry {
   align-content: start;
 }
+@media (max-width: 640px) {
+  /* explore mode on phones: the HUD needs the room; depth stays on the scale */
+  .gauge--game .gauge__readout {
+    display: none;
+  }
+}

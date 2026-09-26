@@ -114,7 +114,7 @@ function DepthGauge({ game }: { game: boolean }) {
   }, [])
 
   return (
-    <div className="gauge">
+    <div className={`gauge ${game ? 'gauge--game' : ''}`}>
       <div className="gauge__track" aria-hidden="true">
         {TICKS.map((t) => (
           <span key={t} className="gauge__tick" style={{ top: `${scale(t) * 100}%` }}>

@@ -61,7 +61,7 @@ function HUD() {
       // viewfinder: the focus box follows the subject, stars estimate the shot
       const f = player.frame
       if (f.id) {
-        const r = Math.max(f.r, 22)
+        const r = Math.min(Math.max(f.r, 22), Math.min(window.innerWidth, window.innerHeight) * 0.3)
         target.current.style.transform = `translate3d(${f.x}px, ${f.y}px, 0) scale(${r / 50})`
         target.current.style.opacity = '1'
         const stars = starsFor(f.quality, player.vel.length(), player.turnRate)

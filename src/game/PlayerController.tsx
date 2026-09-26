@@ -582,7 +582,8 @@ export function PlayerController() {
     let nx = behind ? -st.tmp.x : st.tmp.x
     let ny = behind ? -st.tmp.y : st.tmp.y
     // keep the marker clear of the depth gauge (right) and the panels
-    const m = Math.max(Math.abs(nx) / 0.68, Math.abs(ny) / 0.8)
+    const lx = Math.min(0.68, 1 - 220 / size.width) // ≥ 110 px from the edges
+    const m = Math.max(Math.abs(nx) / lx, Math.abs(ny) / 0.8)
     v.edge = behind || m > 1
     if (v.edge) {
       nx /= Math.max(m, 1e-3)
